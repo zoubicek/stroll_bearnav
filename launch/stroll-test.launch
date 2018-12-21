@@ -1,0 +1,8 @@
+<launch>
+
+<!-- feature extraction -->
+<node pkg="stroll_bearnav" type="feature_extraction_node" name="feature_extraction" output="screen">
+<remap from="image" to="/stereo/joined/image_raw"/>
+</node>
+
+</launch>
