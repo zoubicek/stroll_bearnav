@@ -79,8 +79,6 @@ NormTypes cFeatureNorm = featureNorm;
 float ratioMatchConstant = 0.7;
 int knn = 5, vertical_threshold = 20, c = 65 * 56; // Distance * difference between x
 
-// Rviz pointcloud
-
 int detectKeyPoints(Mat &image,vector<KeyPoint> &keypoints)
 {
 	cv::Mat img;
@@ -217,39 +215,40 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 				if(difference_ver <= vertical_threshold) {
 					good_matches.push_back(matches[i][0]);
 					double z = c/difference_hor;
+					
 					z_coordinate.push_back(z);
 					ROS_INFO("Dif X: %f, Z: %f", difference_hor, z);
-					//ROS_INFO("X1: %f, Y1: %f, X2: %f, Y2: %f", difference_hor, z);
 				}
 			}
 		}
 	}
 		
-	///* publish image features */
-	//featureArray.feature.clear();
-	//for(int i=0;i < keypoints.size(); i++){
-		//feature.x = keypoints[i].pt.x;
-		//feature.y = keypoints[i].pt.y;
-		//feature.size = keypoints[i].size;
-		//feature.angle = keypoints[i].angle;
-		//feature.response = keypoints[i].response;
-		//feature.octave = keypoints[i].octave;
-		//feature.class_id = featureNorm;
-		//descriptors.row(i).copyTo(feature.descriptor);
-		//if(adaptThreshold) {
-			//if(i < targetKeypoints) featureArray.feature.push_back(feature);
-		//} else {
-			//featureArray.feature.push_back(feature);
-		//}
+	/* publish image features */
+	featureArray.feature.clear();
+	for(int i=0;i < left_keypoints.size(); i++){
+		feature.x = left_keypoints[i].pt.x;
+		feature.y = left_keypoints[i].pt.y;
+		feature.z = z_coordinate[i];
+		feature.size = left_keypoints[i].size;
+		feature.angle = left_keypoints[i].angle;
+		feature.response = left_keypoints[i].response;
+		feature.octave = left_keypoints[i].octave;
+		feature.class_id = featureNorm;
+		left_descriptors.row(i).copyTo(feature.descriptor);
+		if(adaptThreshold) {
+			if(i < targetKeypoints) featureArray.feature.push_back(feature);
+		} else {
+			featureArray.feature.push_back(feature);
+		}
 
-	//}
-	//char numStr[100];
-	//sprintf(numStr, "Image_%09d", msg->header.seq);
-	//featureArray.id = numStr;
+	}
+	char numStr[100];
+	sprintf(numStr, "Image_%09d", msg->header.seq);
+	featureArray.id = numStr;
 
-	//featureArray.distance = msg->header.seq;
-	//printf("Features: %i\n", (int) featureArray.feature.size());
-	//feat_pub_.publish(featureArray);
+	featureArray.distance = msg->header.seq;
+	printf("Features: %i\n", (int) featureArray.feature.size());
+	feat_pub_.publish(featureArray);
 	
 	/* Show image with good matches */
 	if (left_keypoints.size() > 0 && right_keypoints.size() > 0 && image_pub_.getNumSubscribers() > 0) {
