@@ -16,6 +16,7 @@
 #include <dynamic_reconfigure/server.h>
 #include <stroll_bearnav/featureExtractionConfig.h>
 #include <std_msgs/Int32.h>
+#include <sensor_msgs/PointCloud.h>
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace std;
@@ -42,6 +43,8 @@ image_transport::Publisher image_pub_;
 stroll_bearnav::FeatureArray featureArray;
 stroll_bearnav::Feature feature;
 ros::Publisher feat_pub_;
+ros::Publisher right_points_pub_;
+ros::Publisher left_points_pub_;
 
 /* image feature parameters */
 float detectionThreshold = 0;
@@ -78,6 +81,7 @@ Mat left_descriptors, right_descriptors, img;
 NormTypes cFeatureNorm = featureNorm;
 float ratioMatchConstant = 0.7;
 int knn = 5, vertical_threshold = 20, c = 65 * 56; // Distance * difference between x
+sensor_msgs::PointCloud right_cloud_keypoints, left_cloud_keypoints;
 
 int detectKeyPoints(Mat &image,vector<KeyPoint> &keypoints)
 {
@@ -161,6 +165,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 	left_keypoints.clear();
 	right_keypoints.clear();
 	matches.clear();
+	right_cloud_keypoints.points.clear();
+	left_cloud_keypoints.points.clear();
 	
 	/* Split image */
 	Mat left_img (img, Rect(0, 0, round(img.cols / 2), img.rows));
@@ -203,13 +209,15 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 		
 		/* Perform ratio matching */ 
 		good_matches.reserve(matches.size());
+		left_cloud_keypoints.points.resize(matches.size());
+		right_cloud_keypoints.points.resize(matches.size());
 		for (size_t i = 0; i < matches.size(); i++) {
 			if (matches[i][0].distance < ratioMatchConstant * matches[i][1].distance) {
 				/* Calculate vertical difference */
-				Point2f left_point = right_keypoints[matches[i][0].trainIdx].pt;
-				Point2f right_point = left_keypoints[matches[i][0].queryIdx].pt;
-				double difference_ver = fabs(left_point.y - right_point.y);
-				double difference_hor = fabs(left_point.x - right_point.x);
+				Point2f right_point = right_keypoints[matches[i][0].trainIdx].pt;
+				Point2f left_point = left_keypoints[matches[i][0].queryIdx].pt;
+				double difference_ver = fabs(right_point.y - left_point.y);
+				double difference_hor = fabs(right_point.x - left_point.x);
 				
 				/* Push only straight matches */
 				if(difference_ver <= vertical_threshold) {
@@ -217,11 +225,40 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 					double z = c/difference_hor;
 					
 					z_coordinate.push_back(z);
-					ROS_INFO("Dif X: %f, Z: %f", difference_hor, z);
+					//ROS_INFO("X: %f, Y: %f, Z: %f", right_point.x/100, right_point.y/100, z/100);
+					
+					// Set cloud points
+					left_cloud_keypoints.points[i].x = left_point.x/100;
+					left_cloud_keypoints.points[i].y = z/100;
+					left_cloud_keypoints.points[i].z = left_point.y/100;
+					
+					right_cloud_keypoints.points[i].x = right_point.x/100;
+					right_cloud_keypoints.points[i].y = z/100; // Better
+					right_cloud_keypoints.points[i].z = right_point.y/100;
+					
 				}
 			}
 		}
 	}
+	
+	// Set channel depth
+	sensor_msgs::ChannelFloat32 depth_channel;
+	depth_channel.name = "distance";
+	for (int i = 0; i < left_cloud_keypoints.points.size(); i++) {
+		depth_channel.values.push_back(left_cloud_keypoints.points[i].y);
+    }
+    // Add channel to point cloud
+    left_cloud_keypoints.channels.push_back(depth_channel);
+    right_cloud_keypoints.channels.push_back(depth_channel);
+    // Set header 
+    left_cloud_keypoints.header.frame_id = "map";
+	left_cloud_keypoints.header.stamp = ros::Time::now();
+	
+	right_cloud_keypoints.header.frame_id = "map";
+	right_cloud_keypoints.header.stamp = ros::Time::now();
+	// Publish
+	left_points_pub_.publish(left_cloud_keypoints);
+	right_points_pub_.publish(right_cloud_keypoints);
 		
 	/* publish image features */
 	featureArray.feature.clear();
@@ -240,8 +277,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 		} else {
 			featureArray.feature.push_back(feature);
 		}
-
 	}
+	
 	char numStr[100];
 	sprintf(numStr, "Image_%09d", msg->header.seq);
 	featureArray.id = numStr;
@@ -311,8 +348,10 @@ int main(int argc, char** argv)
 	dynamic_reconfigure::Server<stroll_bearnav::featureExtractionConfig>::CallbackType f = boost::bind(&callback, _1, _2);
 	server.setCallback(f);
 
-	feat_pub_ = nh_.advertise<stroll_bearnav::FeatureArray>("/features",1);
-	image_sub_ = it_.subscribe( "/image", 1,imageCallback);
+	feat_pub_ = nh_.advertise<stroll_bearnav::FeatureArray>("/features", 1);
+	left_points_pub_ = nh_.advertise<sensor_msgs::PointCloud>("/pointCloud/left", 10);
+	right_points_pub_ = nh_.advertise<sensor_msgs::PointCloud>("/pointCloud/right", 10);
+	image_sub_ = it_.subscribe( "/image", 1, imageCallback);
 	ros::Subscriber key_sub = nh_.subscribe("/targetKeypoints", 1, keypointCallback);
 	image_pub_ = it_.advertise("/image_with_features", 1);
 	
