@@ -79,8 +79,8 @@ vector<KeyPoint> left_keypoints, right_keypoints;
 vector<double> z_coordinate; 
 Mat left_descriptors, right_descriptors, img;
 NormTypes cFeatureNorm = featureNorm;
-float ratioMatchConstant = 0.7;
-int knn = 5, vertical_threshold = 20, c = 65 * 56; // Distance * difference between x
+float ratioMatchConstant = 0.3;
+int knn = 5, vertical_threshold = 5, c = 65 * 56; // Distance * difference between x
 sensor_msgs::PointCloud right_cloud_keypoints, left_cloud_keypoints;
 
 int detectKeyPoints(Mat &image,vector<KeyPoint> &keypoints)
@@ -225,7 +225,10 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 					double z = c/difference_hor;
 					
 					z_coordinate.push_back(z);
-					//ROS_INFO("X: %f, Y: %f, Z: %f", right_point.x/100, right_point.y/100, z/100);
+					
+					ROS_INFO("RX: %.0f, RY: %.0f", right_point.x, right_point.y);
+					ROS_INFO("RX: %.0f, LY: %.0f", left_point.x, left_point.y);
+					ROS_INFO("DV: %.0f, DH: %.0f", difference_ver, difference_hor);
 					
 					// Set cloud points
 					left_cloud_keypoints.points[i].x = left_point.x/100;
@@ -235,6 +238,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 					right_cloud_keypoints.points[i].x = right_point.x/100;
 					right_cloud_keypoints.points[i].y = z/100; // Better
 					right_cloud_keypoints.points[i].z = right_point.y/100;
+					
 					
 				}
 			}
