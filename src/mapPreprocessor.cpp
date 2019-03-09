@@ -59,12 +59,12 @@ string prefix;
 bool stop = false;
 
 /*map to be preloaded*/
-vector<vector<KeyPoint> > keypointsMap;
+vector< vector<KeyPoint> > keypointsMap;
 vector<Mat> descriptorMap;
 vector<float> distanceMap;
 vector<string> namesMap;
 vector<Mat> imagesMap;
-vector<vector<float> > ratingsMap;
+vector< vector<float> > ratingsMap;
 
 
 typedef enum

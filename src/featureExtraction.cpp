@@ -80,7 +80,7 @@ void adaptive_threshold(vector<KeyPoint> &keypoints);
 Ptr<DescriptorMatcher> matcher = BFMatcher::create(featureNorm);
 
 /* Vectors for matching */
-vector<vector<DMatch>> matches;
+vector< vector<DMatch> > matches;
 vector<DMatch> good_matches;
 vector<KeyPoint> left_keypoints, right_keypoints;
 vector<double> z_coordinate;
@@ -94,10 +94,10 @@ NormTypes cFeatureNorm = featureNorm; // ???
 float ratioMatchConstant = 0.3;
 
 /* Count of best matches found per each query descriptor or less if a query descriptor has less than k possible matches in total */
-int knn = 5
+int knn = 5;
 
-	/* Constant to find z-coordinate = distance * difference between x */
-	int c = 65 * 56;
+/* Constant to find z-coordinate = distance * difference between x */
+int c = 65 * 56;
 
 /* Vertical treshold */
 int vertical_threshold = 5;

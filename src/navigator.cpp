@@ -30,7 +30,7 @@ static const std::string OPENCV_WINDOW = "Image window";
 
 vector<Point2f> matched_points1;
 vector<Point2f> matched_points2;
-vector<vector<DMatch>> matches, revmatches;
+vector< vector<DMatch> > matches, revmatches;
 vector<DMatch> good_matches;
 vector<DMatch> best_matches;
 vector<DMatch> bad_matches;
@@ -162,7 +162,7 @@ void loadFeatureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 	{
 		keypoint.pt.x = msg->feature[i].x;
 		keypoint.pt.y = msg->feature[i].y;
-		keypoint.pt.z = msg->feature[i].z;
+		// keypoint.pt.z = msg->feature[i].z;
 		keypoint.size = msg->feature[i].size;
 		keypoint.angle = msg->feature[i].angle;
 		keypoint.response = msg->feature[i].response;
@@ -294,7 +294,7 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 		{
 			keypoint.pt.x = msg->feature[i].x;
 			keypoint.pt.y = msg->feature[i].y;
-			keypoint.pt.z = msg->feature[i].z;
+			// keypoint.pt.z = msg->feature[i].z;
 			keypoint.size = msg->feature[i].size;
 			keypoint.angle = msg->feature[i].angle;
 			keypoint.response = msg->feature[i].response;

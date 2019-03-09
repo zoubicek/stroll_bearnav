@@ -62,11 +62,11 @@ KeyPoint keypoint;
 float rating;
 vector<float> ratings;
 
-vector<vector<KeyPoint>> keypointsMap;
+vector< vector<KeyPoint> > keypointsMap;
 vector<Mat> descriptorMap;
 vector<float> distanceMap;
 vector<Mat> imagesMap;
-vector<vector<float>> ratingsMap;
+vector< vector<float> > ratingsMap;
 
 /* Feature messages */
 stroll_bearnav::FeatureArray featureArray;
