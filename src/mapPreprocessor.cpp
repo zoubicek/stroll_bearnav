@@ -317,6 +317,7 @@ void distCallback(const std_msgs::Float32::ConstPtr& msg)
 				{
 					feature.x=keypoints_1[i].pt.x;
 					feature.y=keypoints_1[i].pt.y;
+					feature.z=keypoints_1[i].pt.z;
 					feature.size=keypoints_1[i].size;
 					feature.angle=keypoints_1[i].angle;
 					feature.response=keypoints_1[i].response;
