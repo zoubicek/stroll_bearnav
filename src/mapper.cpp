@@ -57,12 +57,14 @@ vector<string> idQueue;
 Mat descriptors;
 Mat descriptor;
 vector<KeyPoint> keypoints;
+vector<float> zCoordinates;
 vector<float> path;
 KeyPoint keypoint;
 float rating;
 vector<float> ratings;
 
 vector< vector<KeyPoint> > keypointsMap;
+vector< vector<float> > zCoordinateMap;
 vector<Mat> descriptorMap;
 vector<float> distanceMap;
 vector<Mat> imagesMap;
@@ -179,6 +181,7 @@ void executeCB(const stroll_bearnav::mapperGoalConstPtr &goal, Server *serv)
 {
 	imagesMap.clear();
 	keypointsMap.clear();
+	zCoordinateMap.clear();
 	descriptorMap.clear();
 	distanceMap.clear();
 	ratingsMap.clear();
@@ -209,6 +212,7 @@ void executeCB(const stroll_bearnav::mapperGoalConstPtr &goal, Server *serv)
 			imageSelect(lastID);
 			imagesMap.push_back(img);
 			keypointsMap.push_back(keypoints);
+			zCoordinateMap.push_back(zCoordinates);
 			descriptorMap.push_back(descriptors);
 			distanceMap.push_back(distanceTravelled);
 			ratingsMap.push_back(ratings);
@@ -221,6 +225,7 @@ void executeCB(const stroll_bearnav::mapperGoalConstPtr &goal, Server *serv)
 				FileStorage fs(name, FileStorage::WRITE);
 				write(fs, "Image", imagesMap[i]);
 				write(fs, "Keypoints", keypointsMap[i]);
+				write(fs, "ZCoordinate", zCoordinateMap[i]);
 				write(fs, "Descriptors", descriptorMap[i]);
 				write(fs, "Ratings", ratingsMap[i]);
 				fs.release();
@@ -256,7 +261,6 @@ void joyCallback(const sensor_msgs::Joy::ConstPtr &joy)
 {
 	angularSpeed = maxAngularSpeed * forwardSpeed * 0.5 * joy->axes[angularAxis];
 	forwardAcceleration = maxForwardAcceleration * joy->axes[linearAxis];
-	;
 	flipperSpeed = maxFlipperSpeed * joy->axes[flipperAxis];
 	if (joy->buttons[stopButton] || joy->buttons[pauseButton])
 		angularSpeed = forwardSpeed = flipperSpeed = 0;
@@ -281,6 +285,7 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 		if (state == SAVING)
 		{
 			keypoints.clear();
+			zCoordinates.clear();
 			descriptors.release();
 			ratings.clear();
 			img.release();
@@ -289,16 +294,18 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			{
 				keypoint.pt.x = msg->feature[i].x;
 				keypoint.pt.y = msg->feature[i].y;
-				keypoint.pt.z = msg->feature[i].z;
 				keypoint.size = msg->feature[i].size;
 				keypoint.angle = msg->feature[i].angle;
 				keypoint.response = msg->feature[i].response;
 				keypoint.octave = msg->feature[i].octave;
 				keypoint.class_id = msg->feature[i].class_id;
 				keypoints.push_back(keypoint);
+				zCoordinates.push_back(msg->feature[i].z);
+
 				int size = msg->feature[i].descriptor.size();
 				Mat mat(1, size, CV_32FC1, (void *)msg->feature[i].descriptor.data());
 				descriptors.push_back(mat);
+
 				rating = msg->feature[i].rating;
 				ratings.push_back(rating);
 			}
@@ -308,6 +315,7 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			imagesMap.push_back(img);
 
 			keypointsMap.push_back(keypoints);
+			zCoordinateMap.push_back(zCoordinates);
 			descriptorMap.push_back(descriptors);
 			distanceMap.push_back(distanceTotalEvent);
 			ratingsMap.push_back(ratings);
@@ -347,13 +355,13 @@ void infoMapMatch(const stroll_bearnav::NavigationInfo::ConstPtr &msg)
 				stroll_bearnav::Feature feature = msg->map.feature[i];
 				keypoint.pt.x = feature.x;
 				keypoint.pt.y = feature.y;
-				keypoint.pt.z = feature.z;
 				keypoint.size = feature.size;
 				keypoint.angle = feature.angle;
 				keypoint.response = feature.response;
 				keypoint.octave = feature.octave;
 				keypoint.class_id = feature.class_id;
 				keypoints.push_back(keypoint);
+				zCoordinates.push_back(feature.z);
 
 				int size = feature.descriptor.size();
 				Mat mat(1, size, CV_32FC1, (void *)feature.descriptor.data());
@@ -367,7 +375,9 @@ void infoMapMatch(const stroll_bearnav::NavigationInfo::ConstPtr &msg)
 			/* store in memory rather than on disk */
 			imageSelect(msg->view.id.c_str());
 			imagesMap.push_back(img);
+			
 			keypointsMap.push_back(keypoints);
+			zCoordinateMap.push_back(zCoordinates);
 			descriptorMap.push_back(descriptors);
 			distanceMap.push_back(msg->map.distance);
 			ratingsMap.push_back(ratings);

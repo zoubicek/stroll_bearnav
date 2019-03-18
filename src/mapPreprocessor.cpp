@@ -42,7 +42,8 @@ stroll_bearnav::Feature feature;
 /* map variables */
 vector<float> ratings;
 Mat img,img2;
-vector<KeyPoint> keypoints_1,keypoints_2;
+vector<KeyPoint> keypoints_1;
+vector<float> zCoordinate_1;
 string currentMapName;
 float currentDistance = -1.0;
 Mat descriptors_1,descriptors_2;
@@ -60,6 +61,7 @@ bool stop = false;
 
 /*map to be preloaded*/
 vector< vector<KeyPoint> > keypointsMap;
+vector< vector<float> > zCoordinateMap;
 vector<Mat> descriptorMap;
 vector<float> distanceMap;
 vector<string> namesMap;
@@ -110,6 +112,7 @@ int loadMaps()
 	/*preload all maps*/
 	imagesMap.clear();
 	keypointsMap.clear();
+	zCoordinateMap.clear();
 	descriptorMap.clear();
 	distanceMap.clear();
 	namesMap.clear();
@@ -126,6 +129,7 @@ int loadMaps()
 			img.release();
 			descriptors_1.release();
 			fs["Keypoints"]  >> keypoints_1;
+			fs["ZCoordinate"]  >> zCoordinate_1;
 			fs["Descriptors"]>>descriptors_1;
 			fs["Image"]>>img;
 			ratings.clear();
@@ -133,6 +137,7 @@ int loadMaps()
 			for (int j = ratings.size(); j < keypoints_1.size(); j++) ratings.push_back(0);
 			fs.release();
 			keypointsMap.push_back(keypoints_1);
+			zCoordinateMap.push_back(zCoordinate_1);
 			descriptorMap.push_back(descriptors_1);
 			distanceMap.push_back(mapDistances[i]);
 			namesMap.push_back(fileName);
@@ -166,6 +171,7 @@ void loadMap(int index)
 {
 	lastLoadedMap = index;
 	keypoints_1 = keypointsMap[index];
+	zCoordinate_1 = zCoordinateMap[index];
 	descriptors_1 = descriptorMap[index];
 	currentMapName = namesMap[index];
 	currentDistance = distanceMap[index];
@@ -317,7 +323,7 @@ void distCallback(const std_msgs::Float32::ConstPtr& msg)
 				{
 					feature.x=keypoints_1[i].pt.x;
 					feature.y=keypoints_1[i].pt.y;
-					feature.z=keypoints_1[i].pt.z;
+					feature.z=zCoordinate_1[i];
 					feature.size=keypoints_1[i].size;
 					feature.angle=keypoints_1[i].angle;
 					feature.response=keypoints_1[i].response;

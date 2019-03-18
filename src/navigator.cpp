@@ -68,6 +68,7 @@ nav_msgs::Odometry odometry;
 /* Image features parameters */
 Ptr<DescriptorMatcher> matcher;
 vector<KeyPoint> mapKeypoints, currentKeypoints, keypointsGood, keypointsBest;
+vector< float > zCoordinates, currentZCoordinates;
 Mat mapDescriptors, currentDescriptors;
 Mat img_goodKeypoints_1, currentImage, mapImage;
 KeyPoint keypoint, keypoint2;
@@ -155,20 +156,26 @@ void loadFeatureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 {
 	mapFeatures = *msg;
 	ROS_INFO("Received a new reference map");
+
+	// Clear
 	mapKeypoints.clear();
+	zCoordinates.clear();
+
 	mapDescriptors.release();
 	mapDescriptors = Mat();
+
 	for (int i = 0; i < msg->feature.size(); i++)
 	{
 		keypoint.pt.x = msg->feature[i].x;
 		keypoint.pt.y = msg->feature[i].y;
-		// keypoint.pt.z = msg->feature[i].z;
 		keypoint.size = msg->feature[i].size;
 		keypoint.angle = msg->feature[i].angle;
 		keypoint.response = msg->feature[i].response;
 		keypoint.octave = msg->feature[i].octave;
 		keypoint.class_id = msg->feature[i].class_id;
 		mapKeypoints.push_back(keypoint);
+		zCoordinates.push_back(msg->feature[i].z);
+
 		int size = msg->feature[i].descriptor.size();
 		Mat mat(1, size, descriptorType, (void *)msg->feature[i].descriptor.data());
 		mapDescriptors.push_back(mat);
@@ -262,11 +269,13 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 		return false;
 }
 
+/* Receive message from featureExtraction -> get current keypoints -> compare keypoints with stored */
 void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 {
 	if (state == NAVIGATING)
 	{
 		currentKeypoints.clear();
+		currentZCoordinates.clear();
 		keypointsBest.clear();
 		keypointsGood.clear();
 		currentDescriptors.release();
@@ -294,13 +303,14 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 		{
 			keypoint.pt.x = msg->feature[i].x;
 			keypoint.pt.y = msg->feature[i].y;
-			// keypoint.pt.z = msg->feature[i].z;
 			keypoint.size = msg->feature[i].size;
 			keypoint.angle = msg->feature[i].angle;
 			keypoint.response = msg->feature[i].response;
 			keypoint.octave = msg->feature[i].octave;
 			keypoint.class_id = msg->feature[i].class_id;
 			currentKeypoints.push_back(keypoint);
+			currentZCoordinates.push_back(msg->feature[i].z);
+
 			int size = msg->feature[i].descriptor.size();
 			Mat mat(1, size, descriptorType, (void *)msg->feature[i].descriptor.data());
 			currentDescriptors.push_back(mat);
@@ -320,6 +330,8 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			}
 		}
 
+
+		/* Clear matches and histogram */
 		good_matches.clear();
 
 		int numBins = 41;
