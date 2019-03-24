@@ -30,7 +30,7 @@ static const std::string OPENCV_WINDOW = "Image window";
 
 vector<Point2f> matched_points1;
 vector<Point2f> matched_points2;
-vector<vector<DMatch>> matches, revmatches;
+vector<vector<DMatch> > matches, revmatches;
 vector<DMatch> good_matches;
 vector<DMatch> best_matches;
 vector<DMatch> bad_matches;
