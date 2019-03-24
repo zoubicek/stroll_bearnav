@@ -30,7 +30,7 @@ static const std::string OPENCV_WINDOW = "Image window";
 
 vector<Point2f> matched_points1;
 vector<Point2f> matched_points2;
-vector< vector<DMatch> > matches, revmatches;
+vector<vector<DMatch>> matches, revmatches;
 vector<DMatch> good_matches;
 vector<DMatch> best_matches;
 vector<DMatch> bad_matches;
@@ -68,9 +68,9 @@ nav_msgs::Odometry odometry;
 /* Image features parameters */
 Ptr<DescriptorMatcher> matcher;
 vector<KeyPoint> mapKeypoints, currentKeypoints, keypointsGood, keypointsBest;
-vector< float > zCoordinates, currentZCoordinates;
+vector<float> zCoordinates, currentZCoordinates;
 Mat mapDescriptors, currentDescriptors;
-Mat img_goodKeypoints_1, currentImage, mapImage;
+Mat img_goodKeypoints_1, currentImage, mapImage, imgReg;
 KeyPoint keypoint, keypoint2;
 float ratioMatchConstant = 0.7;
 int currentPathElement = 0;
@@ -330,7 +330,6 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			}
 		}
 
-
 		/* Clear matches and histogram */
 		good_matches.clear();
 
@@ -452,9 +451,11 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			printf("\n");
 			float sum = 0;
 			keypointsBest.clear();
+
 			/* use good correspondences to determine heading */
 			best_matches.clear();
 			bad_matches.clear();
+
 			/* take only good correspondences */
 			for (int i = 0; i < num; i++)
 			{
@@ -471,6 +472,20 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 				}
 			}
 			free(differences);
+
+			/* Get points from best matches  */
+			std::vector<Point2f> points1, points2;
+
+			for (size_t i = 0; i < best_matches.size(); i++)
+			{
+				points1.push_back(keypointsBest[best_matches[i].queryIdx].pt);
+				points2.push_back(keypointsBest[best_matches[i].trainIdx].pt);
+			}
+
+			/* Find homography */
+			Mat homography = findHomography(points1, points2, RANSAC);
+
+			cout << "M = "<< endl << " "  << homography << endl << endl;
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();
@@ -673,7 +688,8 @@ void distanceCallback(const std_msgs::Float32::ConstPtr &msg)
 	}
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 	ros::init(argc, argv, "navigator");
 
 	ros::NodeHandle nh;
