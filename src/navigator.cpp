@@ -116,7 +116,7 @@ bool isRating = false;
 int mapChanges = 0;
 
 /* Variables for best transformation */
-int maxSearchingAttempts = 300, compareThreshold = 5;
+int maxSearchingAttempts = 700, compareThreshold = 20;
 
 /* Total distance travelled recieved from the event */
 void distanceEventCallback(const std_msgs::Float32::ConstPtr &msg)
@@ -148,6 +148,9 @@ void callback(stroll_bearnav::navigatorConfig &config, uint32_t level)
 	velocityGain = config.velocityGain;
 	ratioMatchConstant = config.matchingRatio;
 	maxVerticalDifference = config.maxVerticalDifference;
+	
+	maxSearchingAttempts = config.maxSearchingAttempts;
+	compareThreshold = config.compareThreshold;
 
 	minGoodFeatures = config.minGoodFeatures;
 	pixelTurnGain = config.pixelTurnGain;
@@ -286,7 +289,7 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
     fill(boolArr.end() - 4, boolArr.end(), true);
 
 	do {
-		int c = 0, positivePoints = 0;
+		int c = 0, positivePoints = 0, negativePoints = 0, badPoints = 0;
 		
 		// Get next permutation of 4 points
         for (int i = 0; i < currentBestPoints.size(); ++i) {
@@ -294,13 +297,13 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 				//cout << "currentBestPoints: "<< endl << " "  << currentBestPoints[i] << endl << endl;
 				//cout << "bestPoints: "<< endl << " "  << bestPoints[i] << endl << endl;
 				
-				if(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
-				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y)) {
-						nonNumber = true;
-				} else {
+				if(!(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
+				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y))) {
 					src[c] = currentBestPoints[i];
 					dst[c] = bestPoints[i];
 					c++;
+				} else {
+					nonNumber = true;
 				}
             }
         }
@@ -316,8 +319,9 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 
 		// Compare points after transformation and get number of positive results
 		for (int i = 0; i < currentBestPoints.size(); ++i) {
-			if(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
-				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y)) {
+			if(!(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
+				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y)
+				|| isnan(currentZCoordinateBest[i]) || isinf(currentZCoordinateBest[i]) || isnan(zCoordinateBest[i]) || isinf(zCoordinateBest[i]))) {
 				// Create matrix from point
 				Mat srcM = (Mat_<float>(3,1) << currentBestPoints[i].x, currentBestPoints[i].y, 1);
 				// Convert tranformation matrix
@@ -334,13 +338,19 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 				if(fabs(bestPoints[i].x - result.at<float>(0,0)) < compareThreshold && fabs(bestPoints[i].y - result.at<float>(1,0)) < compareThreshold 
 				&& fabs(currentZCoordinateBest[i] - zCoordinateBest[i]) < compareThreshold) {
 					positivePoints++;
-				} 
+				} else {
+					negativePoints++;
+				}
+			} else {
+				badPoints++;
 			}
 		}
-
+		
+		//cout << "Positive points: " << positivePoints << endl << "Negative points: "  << negativePoints << endl << "Bad points: "  << badPoints  << endl;
+		
 		// Better transition?
 		if(positivePoints > maxPositivePoints) {
-			bestTransform = result;
+			bestTransform = transform;
 			maxPositivePoints = positivePoints;
 		}
 
@@ -351,6 +361,8 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 			maxRounds++;
 		}
     } while (next_permutation(boolArr.begin(), boolArr.end()));
+    
+    cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << currentBestPoints.size() << endl << endl;
 
 	return bestTransform;
 }
@@ -574,8 +586,6 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 
 			/* Find transformation between two pictures */
 			Mat transformation = findBestTransformation(currentBestPoints, currentZCoordinateBest, bestPoints, zCoordinateBest);
-
-			cout << "M = "<< endl << " "  << transformation << endl << endl;
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();
