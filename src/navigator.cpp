@@ -27,7 +27,6 @@
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace std;
-using namespace Mat;
 static const std::string OPENCV_WINDOW = "Image window";
 
 vector<Point2f> matched_points1;
@@ -301,9 +300,9 @@ Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int
 
 		for (int i = 0; i < pointsA.size(); ++i) {
 			Mat srcM = (Mat_<float>(3,1) << pointsA[i].x, pointsA[i].y, 1);
-			Mat destM = (Mat_<float>(3,1) << pointsB[i].x, pointsB[i].y, 1).inv();
+			Mat destM = (Mat_<float>(3,1) << pointsB[i].x, pointsB[i].y, 1);
 
-			Mat result = transform * srcM * destM;
+			Mat result = transform * srcM;
 
 			break;
 		}
