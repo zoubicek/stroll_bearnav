@@ -7,6 +7,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <stdio.h>
 #include <iostream>
+#include <algorithm>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Twist.h>
 #include <stroll_bearnav/FeatureArray.h>
@@ -269,6 +270,52 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 		return false;
 }
 
+/* Get best transformation from points  */
+Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int maxAttempts) {
+	vector<bool> boolArr(pointsA.size());
+	Point2f src[] = new Point2f[4];
+	Point2f dst[] = new Point2f[4];
+	Mat bestTransform;
+	int max = 0;
+
+	// Fill last 4 positions
+    fill(boolArr.end() - 4, boolArr.end(), true);
+
+	do {
+		// Get next 4 points
+		int c = 0;
+        for (int i = 0; i < pointsA.size(); ++i) {
+            if (boolArr[i]) {
+				src[c] = pointsA[i];
+				dst[c] = pointsB[i];
+				c++;
+            }
+        }
+
+		// Get perspective transform
+		Mat transform = cv.getPerspectiveTransform(src, dst);
+
+		// for (int i = 0; i < pointsA.size(); ++i) {
+			// Mat C = (Mat_<double>(3,1) << pointsA[0], );
+			// Mat result = transform * 
+		// }
+
+		cout << "M = "<< endl << " "  << transform << endl << endl;
+		
+
+		// Max attempts condition
+		if(maxAttempts <= max) {
+			break;
+		} else {
+			max++;
+		}
+
+		break;
+    } while (next_permutation(boolArr.begin(), boolArr.end()));
+
+	return nullptr;
+}
+
 /* Receive message from featureExtraction -> get current keypoints -> compare keypoints with stored */
 void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 {
@@ -482,10 +529,10 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 				points2.push_back(keypointsBest[best_matches[i].trainIdx].pt);
 			}
 
-			/* Find homography */
-			Mat homography = findHomography(points1, points2, RANSAC);
+			/* Find transformation between two pictures */
+			Mat transformation = findBestTransformation(points1, points2, 100);
 
-			cout << "M = "<< endl << " "  << homography << endl << endl;
+			// cout << "M = "<< endl << " "  << transformation << endl << endl;
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();
