@@ -27,6 +27,7 @@
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace std;
+using namespace Mat;
 static const std::string OPENCV_WINDOW = "Image window";
 
 vector<Point2f> matched_points1;
