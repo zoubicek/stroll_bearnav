@@ -273,8 +273,8 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 /* Get best transformation from points  */
 Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int maxAttempts) {
 	vector<bool> boolArr(pointsA.size());
-	Point2f src[] = new Point2f[4];
-	Point2f dst[] = new Point2f[4];
+	Point2f src[4];
+	Point2f dst[4];
 	Mat bestTransform;
 	int max = 0;
 
@@ -293,7 +293,7 @@ Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int
         }
 
 		// Get perspective transform
-		Mat transform = cv.getPerspectiveTransform(src, dst);
+		Mat transform = getPerspectiveTransform(src, dst);
 
 		// for (int i = 0; i < pointsA.size(); ++i) {
 			// Mat C = (Mat_<double>(3,1) << pointsA[0], );
@@ -313,7 +313,7 @@ Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int
 		break;
     } while (next_permutation(boolArr.begin(), boolArr.end()));
 
-	return nullptr;
+	return bestTransform;
 }
 
 /* Receive message from featureExtraction -> get current keypoints -> compare keypoints with stored */
