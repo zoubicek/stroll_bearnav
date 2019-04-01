@@ -274,12 +274,12 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 }
 
 /* Get best transformation from points  */
-Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int maxAttempts) {
-	vector<bool> boolArr(pointsA.size());
+Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> currentZCoordinateBest, vector<Point2f> bestPoints, vector<float> zCoordinateBest) {
+	vector<bool> boolArr(currentBestPoints.size());
 	Point2f src[4];
 	Point2f dst[4];
 	Mat bestTransform, result;
-	int max = 0, maxPositivePoints = 0;
+	int maxRounds = 0, maxPositivePoints = 0;
 	bool nonNumber = false;
 
 	// Fill last 4 positions
@@ -289,17 +289,17 @@ Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int
 		int c = 0, positivePoints = 0;
 		
 		// Get next permutation of 4 points
-        for (int i = 0; i < pointsA.size(); ++i) {
-            if (boolArr[i]) {	
-				//cout << "PointsA: "<< endl << " "  << pointsA[i] << endl << endl;
-				//cout << "PointsB: "<< endl << " "  << pointsB[i] << endl << endl;
+        for (int i = 0; i < currentBestPoints.size(); ++i) {
+            if (boolArr[i]) {
+				//cout << "currentBestPoints: "<< endl << " "  << currentBestPoints[i] << endl << endl;
+				//cout << "bestPoints: "<< endl << " "  << bestPoints[i] << endl << endl;
 				
-				if(isnan(pointsA[i].x) || isinf(pointsA[i].x) || isnan(pointsA[i].y) || isinf(pointsA[i].y)  
-				|| isnan(pointsB[i].x) || isinf(pointsB[i].x) || isnan(pointsB[i].y) || isinf(pointsB[i].y)) {
+				if(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
+				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y)) {
 						nonNumber = true;
 				} else {
-					src[c] = pointsA[i];
-					dst[c] = pointsB[i];
+					src[c] = currentBestPoints[i];
+					dst[c] = bestPoints[i];
 					c++;
 				}
             }
@@ -315,40 +315,41 @@ Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int
 		Mat transform = getPerspectiveTransform(src, dst); // Return CV_64F matrix
 
 		// Compare points after transformation and get number of positive results
-		for (int i = 0; i < pointsA.size(); ++i) {
-			if(isnan(pointsA[i].x) || isinf(pointsA[i].x) || isnan(pointsA[i].y) || isinf(pointsA[i].y)  
-				|| isnan(pointsB[i].x) || isinf(pointsB[i].x) || isnan(pointsB[i].y) || isinf(pointsB[i].y)) {
-					
-					Mat srcM = (Mat_<float>(3,1) << pointsA[i].x, pointsA[i].y, 1);
-						
-					// Convert tranformation matrix
-					transform.convertTo(transform, CV_32F);
-					
-					//cout << "Transform matrix = " << endl << " "  << transform << endl << endl;
-					//cout << "Source matrix = " << endl << " "  << srcM << endl << endl;
-					//cout << "Destination matrix = " << endl << " "  << destM << endl << endl;
-					
-					// Tranformation matrix multiply source points
-					result = transform * srcM;
-					
-					//cout << "Result = " << endl << " "  << result << endl << endl;
-					
-					if(fabs((pointsB[i].x - result.at<float>(0,0))) < compareThreshold && fabs((pointsB[i].y - result.at<float>(1,0))) < compareThreshold &&
-						) {
-						
-					} 
+		for (int i = 0; i < currentBestPoints.size(); ++i) {
+			if(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
+				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y)) {
+				// Create matrix from point
+				Mat srcM = (Mat_<float>(3,1) << currentBestPoints[i].x, currentBestPoints[i].y, 1);
+				// Convert tranformation matrix
+				transform.convertTo(transform, CV_32F);
+				// Tranformation matrix multiply source points
+				result = transform * srcM;
+				
+				//cout << "Transform matrix = " << endl << " "  << transform << endl << endl;
+				//cout << "Source matrix = " << endl << " "  << srcM << endl << endl;
+				//cout << "Destination matrix = " << endl << " "  << destM << endl << endl;
+				//cout << "Result = " << endl << " "  << result << endl << endl;
+				
+				// Is transition ok?
+				if(fabs(bestPoints[i].x - result.at<float>(0,0)) < compareThreshold && fabs(bestPoints[i].y - result.at<float>(1,0)) < compareThreshold 
+				&& fabs(currentZCoordinateBest[i] - zCoordinateBest[i]) < compareThreshold) {
+					positivePoints++;
+				} 
 			}
 		}
 
-
-		// Max attempts condition
-		if(maxAttempts <= max) {
-			break;
-		} else {
-			max++;
+		// Better transition?
+		if(positivePoints > maxPositivePoints) {
+			bestTransform = result;
+			maxPositivePoints = positivePoints;
 		}
 
-		break;
+		// Max attempts condition
+		if(maxSearchingAttempts <= maxRounds) {
+			break;
+		} else {
+			maxRounds++;
+		}
     } while (next_permutation(boolArr.begin(), boolArr.end()));
 
 	return bestTransform;
@@ -559,18 +560,22 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			free(differences);
 
 			/* Get points from best matches  */
-			std::vector<Point2f> points1, points2;
+			std::vector<Point2f> bestPoints, currentBestPoints;
+			vector<float> zCoordinateBest, currentZCoordinateBest;
 
 			for (size_t i = 0; i < best_matches.size(); i++)
 			{
-				points1.push_back(keypointsBest[best_matches[i].queryIdx].pt);
-				points2.push_back(keypointsBest[best_matches[i].trainIdx].pt);
+				currentBestPoints.push_back(currentKeypoints[best_matches[i].trainIdx].pt);
+				currentZCoordinateBest.push_back(best_matches[i].trainIdx);
+
+				bestPoints.push_back(mapKeypoints[best_matches[i].queryIdx].pt);
+				zCoordinateBest.push_back(best_matches[i].queryIdx);
 			}
 
 			/* Find transformation between two pictures */
-			Mat transformation = findBestTransformation(points1, points2, maxSearchingAttempts);
+			Mat transformation = findBestTransformation(currentBestPoints, currentZCoordinateBest, bestPoints, zCoordinateBest);
 
-			// cout << "M = "<< endl << " "  << transformation << endl << endl;
+			cout << "M = "<< endl << " "  << transformation << endl << endl;
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();
