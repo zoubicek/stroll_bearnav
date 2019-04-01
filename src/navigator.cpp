@@ -116,7 +116,7 @@ bool isRating = false;
 int mapChanges = 0;
 
 /* Variables for best transformation */
-int maxSearchingAttempts = 300;
+int maxSearchingAttempts = 300, compareThreshold = 5;
 
 /* Total distance travelled recieved from the event */
 void distanceEventCallback(const std_msgs::Float32::ConstPtr &msg)
@@ -278,37 +278,68 @@ Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int
 	vector<bool> boolArr(pointsA.size());
 	Point2f src[4];
 	Point2f dst[4];
-	Mat bestTransform;
-	int max = 0;
+	Mat bestTransform, result;
+	int max = 0, maxPositivePoints = 0;
+	bool nonNumber = false;
 
 	// Fill last 4 positions
     fill(boolArr.end() - 4, boolArr.end(), true);
 
 	do {
-		// Get next 4 points
-		int c = 0;
+		int c = 0, positivePoints = 0;
+		
+		// Get next permutation of 4 points
         for (int i = 0; i < pointsA.size(); ++i) {
-            if (boolArr[i]) {
-				src[c] = pointsA[i];
-				dst[c] = pointsB[i];
-				c++;
+            if (boolArr[i]) {	
+				//cout << "PointsA: "<< endl << " "  << pointsA[i] << endl << endl;
+				//cout << "PointsB: "<< endl << " "  << pointsB[i] << endl << endl;
+				
+				if(isnan(pointsA[i].x) || isinf(pointsA[i].x) || isnan(pointsA[i].y) || isinf(pointsA[i].y)  
+				|| isnan(pointsB[i].x) || isinf(pointsB[i].x) || isnan(pointsB[i].y) || isinf(pointsB[i].y)) {
+						nonNumber = true;
+				} else {
+					src[c] = pointsA[i];
+					dst[c] = pointsB[i];
+					c++;
+				}
             }
         }
-
-		// Get perspective transform
-		Mat transform = getPerspectiveTransform(src, dst);
-
-		for (int i = 0; i < pointsA.size(); ++i) {
-			Mat srcM = (Mat_<float>(3,1) << pointsA[i].x, pointsA[i].y, 1);
-			Mat destM = (Mat_<float>(3,1) << pointsB[i].x, pointsB[i].y, 1);
-
-			Mat result = transform * srcM;
-
-			break;
+        
+        // Points without infinity and nan
+        if(nonNumber) {
+			nonNumber = true;
+			continue;
 		}
 
-		cout << "M = "<< endl << " "  << result << endl << endl;
-		
+		// Get perspective transform
+		Mat transform = getPerspectiveTransform(src, dst); // Return CV_64F matrix
+
+		// Compare points after transformation and get number of positive results
+		for (int i = 0; i < pointsA.size(); ++i) {
+			if(isnan(pointsA[i].x) || isinf(pointsA[i].x) || isnan(pointsA[i].y) || isinf(pointsA[i].y)  
+				|| isnan(pointsB[i].x) || isinf(pointsB[i].x) || isnan(pointsB[i].y) || isinf(pointsB[i].y)) {
+					
+					Mat srcM = (Mat_<float>(3,1) << pointsA[i].x, pointsA[i].y, 1);
+						
+					// Convert tranformation matrix
+					transform.convertTo(transform, CV_32F);
+					
+					//cout << "Transform matrix = " << endl << " "  << transform << endl << endl;
+					//cout << "Source matrix = " << endl << " "  << srcM << endl << endl;
+					//cout << "Destination matrix = " << endl << " "  << destM << endl << endl;
+					
+					// Tranformation matrix multiply source points
+					result = transform * srcM;
+					
+					//cout << "Result = " << endl << " "  << result << endl << endl;
+					
+					if(fabs((pointsB[i].x - result.at<float>(0,0))) < compareThreshold && fabs((pointsB[i].y - result.at<float>(1,0))) < compareThreshold &&
+						) {
+						
+					} 
+			}
+		}
+
 
 		// Max attempts condition
 		if(maxAttempts <= max) {

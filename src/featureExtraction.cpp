@@ -162,7 +162,7 @@ void callback(stroll_bearnav::featureExtractionConfig &config, uint32_t level)
 
 	/* Set ratio match constant, c constant and vertical threshold */
 	ratioMatchConstant = config.ratioMatchConstant;
-	c = config.c;
+	c = config.cConstant;
 	vertical_threshold = config.verticalThreshold;
 
 	/* Optimize detecting features and measure time */
