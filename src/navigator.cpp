@@ -115,6 +115,9 @@ int maxVerticalDifference = 0;
 bool isRating = false;
 int mapChanges = 0;
 
+/* Variables for best transformation */
+int maxSearchingAttempts = 300;
+
 /* Total distance travelled recieved from the event */
 void distanceEventCallback(const std_msgs::Float32::ConstPtr &msg)
 {
@@ -295,12 +298,16 @@ Mat findBestTransformation(vector<Point2f> pointsA, vector<Point2f> pointsB, int
 		// Get perspective transform
 		Mat transform = getPerspectiveTransform(src, dst);
 
-		// for (int i = 0; i < pointsA.size(); ++i) {
-			// Mat C = (Mat_<double>(3,1) << pointsA[0], );
-			// Mat result = transform * 
-		// }
+		for (int i = 0; i < pointsA.size(); ++i) {
+			Mat srcM = (Mat_<float>(3,1) << pointsA[i].x, pointsA[i].y, 1);
+			Mat destM = (Mat_<float>(3,1) << pointsB[i].x, pointsB[i].y, 1).inv();
 
-		cout << "M = "<< endl << " "  << transform << endl << endl;
+			Mat result = transform * srcM * destM;
+
+			break;
+		}
+
+		cout << "M = "<< endl << " "  << result << endl << endl;
 		
 
 		// Max attempts condition
@@ -530,7 +537,7 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			}
 
 			/* Find transformation between two pictures */
-			Mat transformation = findBestTransformation(points1, points2, 100);
+			Mat transformation = findBestTransformation(points1, points2, maxSearchingAttempts);
 
 			// cout << "M = "<< endl << " "  << transformation << endl << endl;
 
