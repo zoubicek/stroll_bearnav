@@ -69,7 +69,7 @@ nav_msgs::Odometry odometry;
 /* Image features parameters */
 Ptr<DescriptorMatcher> matcher;
 vector<KeyPoint> mapKeypoints, currentKeypoints, keypointsGood, keypointsBest;
-vector<float> zCoordinates, currentZCoordinates;
+vector<float> xCoordinates, currentXCoordinates, yCoordinates, currentYCoordinates, zCoordinates, currentZCoordinates;
 Mat mapDescriptors, currentDescriptors;
 Mat img_goodKeypoints_1, currentImage, mapImage, imgReg;
 KeyPoint keypoint, keypoint2;
@@ -166,6 +166,8 @@ void loadFeatureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 
 	// Clear
 	mapKeypoints.clear();
+	xCoordinates.clear();
+	yCoordinates.clear();
 	zCoordinates.clear();
 
 	mapDescriptors.release();
@@ -181,7 +183,9 @@ void loadFeatureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 		keypoint.octave = msg->feature[i].octave;
 		keypoint.class_id = msg->feature[i].class_id;
 		mapKeypoints.push_back(keypoint);
-		zCoordinates.push_back(msg->feature[i].z);
+		xCoordinates.push_back(msg->feature[i].cor_x);
+		yCoordinates.push_back(msg->feature[i].cor_y);
+		zCoordinates.push_back(msg->feature[i].cor_z);
 
 		int size = msg->feature[i].descriptor.size();
 		Mat mat(1, size, descriptorType, (void *)msg->feature[i].descriptor.data());
@@ -277,8 +281,8 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 }
 
 /* Get best transformation from points  */
-Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> currentZCoordinateBest, vector<Point2f> bestPoints, vector<float> zCoordinateBest) {
-	vector<bool> boolArr(currentBestPoints.size());
+Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points) {
+	vector<bool> boolArr(currentPoints.size());
 	Point2f src[4];
 	Point2f dst[4];
 	Mat bestTransform, result;
@@ -292,15 +296,14 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 		int c = 0, positivePoints = 0, negativePoints = 0, badPoints = 0;
 		
 		// Get next permutation of 4 points
-        for (int i = 0; i < currentBestPoints.size(); ++i) {
+        for (int i = 0; i < currentPoints.size(); ++i) {
             if (boolArr[i]) {
-				//cout << "currentBestPoints: "<< endl << " "  << currentBestPoints[i] << endl << endl;
-				//cout << "bestPoints: "<< endl << " "  << bestPoints[i] << endl << endl;
 				
-				if(!(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
-				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y))) {
-					src[c] = currentBestPoints[i];
-					dst[c] = bestPoints[i];
+				if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].z) || isinf(currentPoints[i].z)  
+				|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].z) || isinf(points[i].z))) {
+					Point2f srcP(currentPoints[i].z, currentPoints[i].x), dstP(points[i].z, points[i].x);
+					src[c] = srcP;
+					dst[c] = dstP;
 					c++;
 				} else {
 					nonNumber = true;
@@ -318,12 +321,12 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 		Mat transform = getPerspectiveTransform(src, dst); // Return CV_64F matrix
 
 		// Compare points after transformation and get number of positive results
-		for (int i = 0; i < currentBestPoints.size(); ++i) {
-			if(!(isnan(currentBestPoints[i].x) || isinf(currentBestPoints[i].x) || isnan(currentBestPoints[i].y) || isinf(currentBestPoints[i].y)  
-				|| isnan(bestPoints[i].x) || isinf(bestPoints[i].x) || isnan(bestPoints[i].y) || isinf(bestPoints[i].y)
-				|| isnan(currentZCoordinateBest[i]) || isinf(currentZCoordinateBest[i]) || isnan(zCoordinateBest[i]) || isinf(zCoordinateBest[i]))) {
+		for (int i = 0; i < currentPoints.size(); ++i) {
+			if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].y) || isinf(currentPoints[i].y)  
+				|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].y) || isinf(points[i].y)
+				|| isnan(currentPoints[i].z) || isinf(currentPoints[i].z) || isnan(points[i].z) || isinf(points[i].z))) {
 				// Create matrix from point
-				Mat srcM = (Mat_<float>(3,1) << currentBestPoints[i].x, currentBestPoints[i].y, 1);
+				Mat srcM = (Mat_<float>(3,1) << currentPoints[i].z, currentPoints[i].x , 1);
 				// Convert tranformation matrix
 				transform.convertTo(transform, CV_32F);
 				// Tranformation matrix multiply source points
@@ -335,8 +338,7 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 				//cout << "Result = " << endl << " "  << result << endl << endl;
 				
 				// Is transition ok?
-				if(fabs(bestPoints[i].x - result.at<float>(0,0)) < compareThreshold && fabs(bestPoints[i].y - result.at<float>(1,0)) < compareThreshold 
-				&& fabs(currentZCoordinateBest[i] - zCoordinateBest[i]) < compareThreshold) {
+				if(fabs(points[i].z - result.at<float>(0,0)) < compareThreshold && fabs(points[i].x - result.at<float>(1,0)) < compareThreshold) {
 					positivePoints++;
 				} else {
 					negativePoints++;
@@ -361,6 +363,8 @@ Mat findBestTransformation(vector<Point2f> currentBestPoints, vector<float> curr
 			maxRounds++;
 		}
     } while (next_permutation(boolArr.begin(), boolArr.end()));
+
+	// Do perspctive again
     
     cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << currentBestPoints.size() << endl << endl;
 
@@ -373,6 +377,8 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 	if (state == NAVIGATING)
 	{
 		currentKeypoints.clear();
+		currentXCoordinates.clear();
+		currentYCoordinates.clear();
 		currentZCoordinates.clear();
 		keypointsBest.clear();
 		keypointsGood.clear();
@@ -407,7 +413,9 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			keypoint.octave = msg->feature[i].octave;
 			keypoint.class_id = msg->feature[i].class_id;
 			currentKeypoints.push_back(keypoint);
-			currentZCoordinates.push_back(msg->feature[i].z);
+			currentXCoordinates.push_back(msg->feature[i].cor_x);
+			currentYCoordinates.push_back(msg->feature[i].cor_y);
+			currentZCoordinates.push_back(msg->feature[i].cor_z);
 
 			int size = msg->feature[i].descriptor.size();
 			Mat mat(1, size, descriptorType, (void *)msg->feature[i].descriptor.data());

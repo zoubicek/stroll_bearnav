@@ -57,14 +57,14 @@ vector<string> idQueue;
 Mat descriptors;
 Mat descriptor;
 vector<KeyPoint> keypoints;
-vector<float> zCoordinates;
+vector<float> xCoordinates, yCoordinates, zCoordinates;
 vector<float> path;
 KeyPoint keypoint;
 float rating;
 vector<float> ratings;
 
 vector< vector<KeyPoint> > keypointsMap;
-vector< vector<float> > zCoordinateMap;
+vector< vector<float> > xCoordinateMap, yCoordinateMap, zCoordinateMap;
 vector<Mat> descriptorMap;
 vector<float> distanceMap;
 vector<Mat> imagesMap;
@@ -181,6 +181,8 @@ void executeCB(const stroll_bearnav::mapperGoalConstPtr &goal, Server *serv)
 {
 	imagesMap.clear();
 	keypointsMap.clear();
+	xCoordinateMap.clear();
+	yCoordinateMap.clear();
 	zCoordinateMap.clear();
 	descriptorMap.clear();
 	distanceMap.clear();
@@ -212,6 +214,8 @@ void executeCB(const stroll_bearnav::mapperGoalConstPtr &goal, Server *serv)
 			imageSelect(lastID);
 			imagesMap.push_back(img);
 			keypointsMap.push_back(keypoints);
+			xCoordinateMap.push_back(xCoordinates);
+			yCoordinateMap.push_back(yCoordinates);
 			zCoordinateMap.push_back(zCoordinates);
 			descriptorMap.push_back(descriptors);
 			distanceMap.push_back(distanceTravelled);
@@ -225,6 +229,8 @@ void executeCB(const stroll_bearnav::mapperGoalConstPtr &goal, Server *serv)
 				FileStorage fs(name, FileStorage::WRITE);
 				write(fs, "Image", imagesMap[i]);
 				write(fs, "Keypoints", keypointsMap[i]);
+				write(fs, "XCoordinate", xCoordinateMap[i]);
+				write(fs, "YCoordinate", yCoordinateMap[i]);
 				write(fs, "ZCoordinate", zCoordinateMap[i]);
 				write(fs, "Descriptors", descriptorMap[i]);
 				write(fs, "Ratings", ratingsMap[i]);
@@ -285,6 +291,8 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 		if (state == SAVING)
 		{
 			keypoints.clear();
+			xCoordinates.clear();
+			yCoordinates.clear();
 			zCoordinates.clear();
 			descriptors.release();
 			ratings.clear();
@@ -300,7 +308,9 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 				keypoint.octave = msg->feature[i].octave;
 				keypoint.class_id = msg->feature[i].class_id;
 				keypoints.push_back(keypoint);
-				zCoordinates.push_back(msg->feature[i].z);
+				xCoordinates.push_back(msg->feature[i].cor_x);
+				yCoordinates.push_back(msg->feature[i].cor_y);
+				zCoordinates.push_back(msg->feature[i].cor_z);
 
 				int size = msg->feature[i].descriptor.size();
 				Mat mat(1, size, CV_32FC1, (void *)msg->feature[i].descriptor.data());
@@ -315,6 +325,8 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			imagesMap.push_back(img);
 
 			keypointsMap.push_back(keypoints);
+			xCoordinateMap.push_back(xCoordinates);
+			yCoordinateMap.push_back(yCoordinates);
 			zCoordinateMap.push_back(zCoordinates);
 			descriptorMap.push_back(descriptors);
 			distanceMap.push_back(distanceTotalEvent);
@@ -361,7 +373,9 @@ void infoMapMatch(const stroll_bearnav::NavigationInfo::ConstPtr &msg)
 				keypoint.octave = feature.octave;
 				keypoint.class_id = feature.class_id;
 				keypoints.push_back(keypoint);
-				zCoordinates.push_back(feature.z);
+				xCoordinates.push_back(feature.cor_x);
+				yCoordinates.push_back(feature.cor_y);
+				zCoordinates.push_back(feature.cor_z);
 
 				int size = feature.descriptor.size();
 				Mat mat(1, size, CV_32FC1, (void *)feature.descriptor.data());
@@ -377,6 +391,8 @@ void infoMapMatch(const stroll_bearnav::NavigationInfo::ConstPtr &msg)
 			imagesMap.push_back(img);
 			
 			keypointsMap.push_back(keypoints);
+			xCoordinateMap.push_back(xCoordinates);
+			yCoordinateMap.push_back(yCoordinates);
 			zCoordinateMap.push_back(zCoordinates);
 			descriptorMap.push_back(descriptors);
 			distanceMap.push_back(msg->map.distance);

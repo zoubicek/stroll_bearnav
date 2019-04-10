@@ -83,7 +83,7 @@ Ptr<DescriptorMatcher> matcher = BFMatcher::create(featureNorm);
 vector< vector<DMatch> > matches;
 vector<DMatch> good_matches;
 vector<KeyPoint> left_keypoints, right_keypoints;
-vector<double> z_coordinate;
+vector<float> x_coordinate, y_coordinate, z_coordinate;
 
 /* Mats for matching */
 Mat left_descriptors, right_descriptors, img;
@@ -104,6 +104,9 @@ int vertical_threshold = 5;
 
 /* Cloud keypoints */
 sensor_msgs::PointCloud right_cloud_keypoints, left_cloud_keypoints;
+
+/* Camera matrix */
+Mat cameraMatrix = (Mat_<float>(3,3) << 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
 int detectKeyPoints(Mat &image, vector<KeyPoint> &keypoints)
 {
@@ -283,22 +286,31 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 					good_matches.push_back(matches[i][0]); // Add to good matches
 
 					// Calculate z-coordinate
-					double z = c / difference_hor;
-					z_coordinate.push_back(z);
+					float cor_z = c / difference_hor;
+					z_coordinate.push_back(cor_z);
 
+					// Calculate x, y-coordinate
+					Mat point = (Mat_<float>(3,1) << left_point.x, left_point.y, z_coordinate);
+  					undistort(point.clone(), point, cameraMatrix, NULL);
+					float cor_x = point.at<float>(0, 0) * cor_z;
+					float cor_y = point.at<float>(1, 0) * cor_z;
+					x_coordinate.push_back(cor_x);
+					y_coordinate.push_back(cor_y);
+					
 					// Show info
 					ROS_INFO("RX: %.0f, RY: %.0f", right_point.x, right_point.y);
 					ROS_INFO("RX: %.0f, LY: %.0f", left_point.x, left_point.y);
 					ROS_INFO("DVER: %.0f, DHOR: %.0f", difference_ver, difference_hor);
+					ROS_INFO("X: %.0f, Y: %.0f, Z: %.0f", cor_x, cor_y, cor_z);
 
 					// Set cloud points (/100 - better to show)
-					left_cloud_keypoints.points[i].x = left_point.x / 100;
-					left_cloud_keypoints.points[i].y = z / 100;
-					left_cloud_keypoints.points[i].z = left_point.y / 100;
+					left_cloud_keypoints.points[i].x = cor_x / 100;
+					left_cloud_keypoints.points[i].y = cor_z / 100;
+					left_cloud_keypoints.points[i].z = cor_y / 100;
 
-					right_cloud_keypoints.points[i].x = right_point.x / 100;
-					right_cloud_keypoints.points[i].y = z / 100;
-					right_cloud_keypoints.points[i].z = right_point.y / 100;
+					right_cloud_keypoints.points[i].x = cor_x / 100;
+					right_cloud_keypoints.points[i].y = cor_z / 100;
+					right_cloud_keypoints.points[i].z = cor_y / 100;
 				}
 			}
 		}
@@ -333,7 +345,9 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 	{ // Only left keypoints
 		feature.x = left_keypoints[i].pt.x;
 		feature.y = left_keypoints[i].pt.y;
-		feature.z = z_coordinate[i];
+		feature.cor_x = x_coordinate[i];
+		feature.cor_y = y_coordinate[i];
+		feature.cor_z = z_coordinate[i];
 		feature.size = left_keypoints[i].size;
 		feature.angle = left_keypoints[i].angle;
 		feature.response = left_keypoints[i].response;
