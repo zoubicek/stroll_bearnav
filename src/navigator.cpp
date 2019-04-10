@@ -366,7 +366,7 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 
 	// Do perspctive again
     
-    cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << currentBestPoints.size() << endl << endl;
+    cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << currentPoints.size() << endl << endl;
 
 	return bestTransform;
 }
@@ -580,20 +580,25 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			free(differences);
 
 			/* Get points from best matches  */
-			std::vector<Point2f> bestPoints, currentBestPoints;
-			vector<float> zCoordinateBest, currentZCoordinateBest;
+			std::vector<Point2f> currentPoints, points;
 
 			for (size_t i = 0; i < best_matches.size(); i++)
 			{
+				Point3f currentPoint(currentKeypoints[best_matches[i].trainIdx].pt.x, currentKeypoints[best_matches[i].trainIdx].pt.y), 
+				point(points[i].z, points[i].x);
+				
+				
 				currentBestPoints.push_back(currentKeypoints[best_matches[i].trainIdx].pt);
 				currentZCoordinateBest.push_back(best_matches[i].trainIdx);
 
 				bestPoints.push_back(mapKeypoints[best_matches[i].queryIdx].pt);
 				zCoordinateBest.push_back(best_matches[i].queryIdx);
+				
+				
 			}
 
 			/* Find transformation between two pictures */
-			Mat transformation = findBestTransformation(currentBestPoints, currentZCoordinateBest, bestPoints, zCoordinateBest);
+			Mat transformation = findBestTransformation();
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();
