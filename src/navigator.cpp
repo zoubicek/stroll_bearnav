@@ -282,7 +282,8 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 
 /* Get best transformation from points  */
 Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points) {
-	vector<bool> boolArr(currentPoints.size());
+	int lenght = min(currentPoints.size(), points.size());
+	vector<bool> boolArr(lenght);
 	Point2f src[4];
 	Point2f dst[4];
 	Mat bestTransform, result;
@@ -296,12 +297,12 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 		int c = 0, positivePoints = 0, negativePoints = 0, badPoints = 0;
 		
 		// Get next permutation of 4 points
-        for (int i = 0; i < currentPoints.size(); ++i) {
+        for (int i = 0; i < lenght; ++i) {
             if (boolArr[i]) {
-				
 				if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].z) || isinf(currentPoints[i].z)  
 				|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].z) || isinf(points[i].z))) {
-					Point2f srcP(currentPoints[i].z, currentPoints[i].x), dstP(points[i].z, points[i].x);
+					Point2f srcP(currentPoints[i].z, currentPoints[i].x);
+					Point2f dstP(points[i].z, points[i].x);
 					src[c] = srcP;
 					dst[c] = dstP;
 					c++;
@@ -321,7 +322,7 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 		Mat transform = getPerspectiveTransform(src, dst); // Return CV_64F matrix
 
 		// Compare points after transformation and get number of positive results
-		for (int i = 0; i < currentPoints.size(); ++i) {
+		for (int i = 0; i < lenght; ++i) {
 			if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].y) || isinf(currentPoints[i].y)  
 				|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].y) || isinf(points[i].y)
 				|| isnan(currentPoints[i].z) || isinf(currentPoints[i].z) || isnan(points[i].z) || isinf(points[i].z))) {
@@ -366,7 +367,7 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 
 	// Do perspctive again
     
-    cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << currentPoints.size() << endl << endl;
+    cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << lenght << endl << endl;
 
 	return bestTransform;
 }
@@ -580,25 +581,20 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			free(differences);
 
 			/* Get points from best matches  */
-			std::vector<Point2f> currentPoints, points;
+			std::vector<Point3f> currentPoints, points;
+			int arLen = min(currentXCoordinates.size(), xCoordinates.size()); // Loss of resting points
 
-			for (size_t i = 0; i < best_matches.size(); i++)
+			for (size_t i = 0; i < arLen; i++)
 			{
-				Point3f currentPoint(currentKeypoints[best_matches[i].trainIdx].pt.x, currentKeypoints[best_matches[i].trainIdx].pt.y), 
-				point(points[i].z, points[i].x);
-				
-				
-				currentBestPoints.push_back(currentKeypoints[best_matches[i].trainIdx].pt);
-				currentZCoordinateBest.push_back(best_matches[i].trainIdx);
+				Point3f currentPoint(currentXCoordinates[i], currentYCoordinates[i], currentZCoordinates[i]); 
+				Point3f point(xCoordinates[i], yCoordinates[i], zCoordinates[i]);
 
-				bestPoints.push_back(mapKeypoints[best_matches[i].queryIdx].pt);
-				zCoordinateBest.push_back(best_matches[i].queryIdx);
-				
-				
+				currentPoints.push_back(currentPoint);
+				points.push_back(point);
 			}
 
 			/* Find transformation between two pictures */
-			Mat transformation = findBestTransformation();
+			Mat transformation = findBestTransformation(currentPoints, points);
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();
