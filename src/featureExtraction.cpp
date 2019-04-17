@@ -97,7 +97,7 @@ float ratioMatchConstant = 0.3;
 int knn = 5;
 
 /* Constant to find z-coordinate = distance * difference between x */
-int c = 65 * 56;
+double c = 0.65 * 0.56; // in m
 
 /* Vertical treshold */
 int vertical_threshold = 5;
@@ -106,7 +106,7 @@ int vertical_threshold = 5;
 sensor_msgs::PointCloud right_cloud_keypoints, left_cloud_keypoints;
 
 /* Camera matrix */
-Mat cameraMatrix = (Mat_<float>(3,3) << 0, 0, 0, 0, 0, 0, 0, 0, 0);
+Mat cameraMatrix = (Mat_<float>(3,3) << 714.4060659074023, 0.0, 378.35395440554737, 0.0, 714.4060659074023, 211.30912263284839, 0.0, 0.0, 1.0);
 
 int detectKeyPoints(Mat &image, vector<KeyPoint> &keypoints)
 {
@@ -218,6 +218,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 	matches.clear();
 	right_cloud_keypoints.points.clear();
 	left_cloud_keypoints.points.clear();
+	int number_of_coordinates = 0, number_of_best_matches = 0;
+	float average_distance = 0.0;
 
 	/* Split image */
 	Mat left_img(img, Rect(0, 0, round(img.cols / 2), img.rows));
@@ -273,7 +275,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 		{
 			if (matches[i][0].distance < ratioMatchConstant * matches[i][1].distance)
 			{
-
+	
 				/* Calculate vertical and horizontal differences */
 				Point2f right_point = right_keypoints[matches[i][0].trainIdx].pt;
 				Point2f left_point = left_keypoints[matches[i][0].queryIdx].pt;
@@ -286,32 +288,38 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 					good_matches.push_back(matches[i][0]); // Add to good matches
 
 					// Calculate z-coordinate
-					float cor_z = c / difference_hor;
+					float cor_z = c / difference_hor; // in m
 					z_coordinate.push_back(cor_z);
 
 					// Calculate x, y-coordinate
-					Mat point = (Mat_<float>(3,1) << left_point.x, left_point.y, z_coordinate);
-  					undistort(point.clone(), point, cameraMatrix, NULL);
-					float cor_x = point.at<float>(0, 0) * cor_z;
-					float cor_y = point.at<float>(1, 0) * cor_z;
+					Mat point = (Mat_<float>(3,1) << left_point.x, left_point.y, cor_z), distortionCoefficients, output_points;
+  					undistort(point, output_points, cameraMatrix, distortionCoefficients);
+  					ROS_INFO("X: %f, Y: %f, Z: %f", output_points.at<float>(0, 0), output_points.at<float>(1, 0), output_points.at<float>(2, 0));
+					float cor_x = (output_points.at<float>(0, 0) / 100) * cor_z; // in m
+					float cor_y = (output_points.at<float>(1, 0) / 100) * cor_z; // in m
 					x_coordinate.push_back(cor_x);
 					y_coordinate.push_back(cor_y);
 					
 					// Show info
 					ROS_INFO("RX: %.0f, RY: %.0f", right_point.x, right_point.y);
-					ROS_INFO("RX: %.0f, LY: %.0f", left_point.x, left_point.y);
+					ROS_INFO("LX: %.0f, LY: %.0f", left_point.x, left_point.y);
 					ROS_INFO("DVER: %.0f, DHOR: %.0f", difference_ver, difference_hor);
-					ROS_INFO("X: %.0f, Y: %.0f, Z: %.0f", cor_x, cor_y, cor_z);
+					ROS_INFO("X: %f, Y: %f, Z: %f", cor_x, cor_y, cor_z);
+					ROS_INFO("-------------------------");
 
 					// Set cloud points (/100 - better to show)
-					left_cloud_keypoints.points[i].x = cor_x / 100;
-					left_cloud_keypoints.points[i].y = cor_z / 100;
-					left_cloud_keypoints.points[i].z = cor_y / 100;
+					left_cloud_keypoints.points[i].x = cor_x;
+					left_cloud_keypoints.points[i].y = cor_z;
+					left_cloud_keypoints.points[i].z = cor_y;
 
-					right_cloud_keypoints.points[i].x = cor_x / 100;
-					right_cloud_keypoints.points[i].y = cor_z / 100;
-					right_cloud_keypoints.points[i].z = cor_y / 100;
+					right_cloud_keypoints.points[i].x = cor_x;
+					right_cloud_keypoints.points[i].y = cor_z;
+					right_cloud_keypoints.points[i].z = cor_y;
+					
+					average_distance += cor_z;
+					number_of_coordinates++;
 				}
+				number_of_best_matches++;
 			}
 		}
 	}
@@ -372,7 +380,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 	featureArray.id = numStr;
 
 	featureArray.distance = msg->header.seq;
-	printf("Features: %i\n", (int)featureArray.feature.size());
+	printf("Features: %i, Matches: %i, BestMatches: %i, Coordinates: %i, Average distance: %f\n", (int)featureArray.feature.size(), (int)matches.size(), number_of_best_matches, number_of_coordinates, average_distance/number_of_coordinates);
 	feat_pub_.publish(featureArray);
 
 	/* Show image with good matches */

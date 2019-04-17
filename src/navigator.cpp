@@ -289,86 +289,90 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 	Mat bestTransform, result;
 	int maxRounds = 0, maxPositivePoints = 0;
 	bool nonNumber = false;
+	
+	if(lenght > 0) {
+		// Fill last 4 positions
+		fill(boolArr.end() - 4, boolArr.end(), true);
 
-	// Fill last 4 positions
-    fill(boolArr.end() - 4, boolArr.end(), true);
-
-	do {
-		int c = 0, positivePoints = 0, negativePoints = 0, badPoints = 0;
-		
-		// Get next permutation of 4 points
-        for (int i = 0; i < lenght; ++i) {
-            if (boolArr[i]) {
-				if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].z) || isinf(currentPoints[i].z)  
-				|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].z) || isinf(points[i].z))) {
-					Point2f srcP(currentPoints[i].z, currentPoints[i].x);
-					Point2f dstP(points[i].z, points[i].x);
-					src[c] = srcP;
-					dst[c] = dstP;
-					c++;
-				} else {
-					nonNumber = true;
+		do {
+			int c = 0, positivePoints = 0, negativePoints = 0, badPoints = 0;
+			
+			// Get next permutation of 4 points
+			for (int i = 0; i < lenght; ++i) {
+				if (boolArr[i]) {
+					if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].z) || isinf(currentPoints[i].z)  
+					|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].z) || isinf(points[i].z))) {
+						Point2f srcP(currentPoints[i].z, currentPoints[i].x);
+						Point2f dstP(points[i].z, points[i].x);
+						src[c] = srcP;
+						dst[c] = dstP;
+						c++;
+					} else {
+						nonNumber = true;
+					}
 				}
-            }
-        }
-        
-        // Points without infinity and nan
-        if(nonNumber) {
-			nonNumber = true;
-			continue;
-		}
-
-		// Get perspective transform
-		Mat transform = getPerspectiveTransform(src, dst); // Return CV_64F matrix
-
-		// Compare points after transformation and get number of positive results
-		for (int i = 0; i < lenght; ++i) {
-			if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].y) || isinf(currentPoints[i].y)  
-				|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].y) || isinf(points[i].y)
-				|| isnan(currentPoints[i].z) || isinf(currentPoints[i].z) || isnan(points[i].z) || isinf(points[i].z))) {
-				// Create matrix from point
-				Mat srcM = (Mat_<float>(3,1) << currentPoints[i].z, currentPoints[i].x , 1);
-				// Convert tranformation matrix
-				transform.convertTo(transform, CV_32F);
-				// Tranformation matrix multiply source points
-				result = transform * srcM;
-				
-				//cout << "Transform matrix = " << endl << " "  << transform << endl << endl;
-				//cout << "Source matrix = " << endl << " "  << srcM << endl << endl;
-				//cout << "Destination matrix = " << endl << " "  << destM << endl << endl;
-				//cout << "Result = " << endl << " "  << result << endl << endl;
-				
-				// Is transition ok?
-				if(fabs(points[i].z - result.at<float>(0,0)) < compareThreshold && fabs(points[i].x - result.at<float>(1,0)) < compareThreshold) {
-					positivePoints++;
-				} else {
-					negativePoints++;
-				}
-			} else {
-				badPoints++;
 			}
-		}
+			
+			// Points without infinity and nan
+			if(nonNumber) {
+				nonNumber = true;
+				continue;
+			}
+
+			// Get perspective transform
+			Mat transform = getPerspectiveTransform(src, dst); // Return CV_64F matrix
+
+			// Compare points after transformation and get number of positive results
+			for (int i = 0; i < lenght; ++i) {
+				if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) || isnan(currentPoints[i].y) || isinf(currentPoints[i].y)  
+					|| isnan(points[i].x) || isinf(points[i].x) || isnan(points[i].y) || isinf(points[i].y)
+					|| isnan(currentPoints[i].z) || isinf(currentPoints[i].z) || isnan(points[i].z) || isinf(points[i].z))) {
+					// Create matrix from point
+					Mat srcM = (Mat_<float>(3,1) << currentPoints[i].z, currentPoints[i].x , 1);
+					// Convert tranformation matrix
+					transform.convertTo(transform, CV_32F);
+					// Tranformation matrix multiply source points
+					result = transform * srcM;
+					
+					//cout << "Transform matrix = " << endl << " "  << transform << endl << endl;
+					//cout << "Source matrix = " << endl << " "  << srcM << endl << endl;
+					//cout << "Destination matrix = " << endl << " "  << destM << endl << endl;
+					//cout << "Result = " << endl << " "  << result << endl << endl;
+					
+					// Is transition ok?
+					if(fabs(points[i].z - result.at<float>(0,0)) < compareThreshold && fabs(points[i].x - result.at<float>(1,0)) < compareThreshold) {
+						positivePoints++;
+					} else {
+						negativePoints++;
+					}
+				} else {
+					badPoints++;
+				}
+			}
+			
+			//cout << "Positive points: " << positivePoints << endl << "Negative points: "  << negativePoints << endl << "Bad points: "  << badPoints  << endl;
+			
+			// Better transition?
+			if(positivePoints > maxPositivePoints) {
+				bestTransform = transform;
+				maxPositivePoints = positivePoints;
+			}
+
+			// Max attempts condition
+			if(maxSearchingAttempts <= maxRounds) {
+				break;
+			} else {
+				maxRounds++;
+			}
+		} while (next_permutation(boolArr.begin(), boolArr.end()));
+
+		// Do perspective again
 		
-		//cout << "Positive points: " << positivePoints << endl << "Negative points: "  << negativePoints << endl << "Bad points: "  << badPoints  << endl;
 		
-		// Better transition?
-		if(positivePoints > maxPositivePoints) {
-			bestTransform = transform;
-			maxPositivePoints = positivePoints;
-		}
-
-		// Max attempts condition
-		if(maxSearchingAttempts <= maxRounds) {
-			break;
-		} else {
-			maxRounds++;
-		}
-    } while (next_permutation(boolArr.begin(), boolArr.end()));
-
-	// Do perspctive again
-    
-    cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << lenght << endl << endl;
-
+		// Show info
+		cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << lenght << endl << endl;
+	}
+	
 	return bestTransform;
 }
 
@@ -582,7 +586,7 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 
 			/* Get points from best matches  */
 			std::vector<Point3f> currentPoints, points;
-			int arLen = min(currentXCoordinates.size(), xCoordinates.size()); // Loss of resting points
+			int arLen = min(currentXCoordinates.size(), xCoordinates.size()); // Loss of ramining points
 
 			for (size_t i = 0; i < arLen; i++)
 			{
