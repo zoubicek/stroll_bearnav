@@ -107,6 +107,7 @@ sensor_msgs::PointCloud right_cloud_keypoints, left_cloud_keypoints;
 
 /* Camera matrix */
 Mat cameraMatrix = (Mat_<float>(3,3) << 714.4060659074023, 0.0, 378.35395440554737, 0.0, 714.4060659074023, 211.30912263284839, 0.0, 0.0, 1.0);
+//Mat distortionCoefficients = (Mat_<float>(5,1) << 0.07527054569113517, -0.1237814448250655, -0.004382264458101108, -0.0020232366942786123, 0.0);
 
 int detectKeyPoints(Mat &image, vector<KeyPoint> &keypoints)
 {
@@ -292,11 +293,12 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 					z_coordinate.push_back(cor_z);
 
 					// Calculate x, y-coordinate
-					Mat point = (Mat_<float>(3,1) << left_point.x, left_point.y, cor_z), distortionCoefficients, output_points;
-  					undistort(point, output_points, cameraMatrix, distortionCoefficients);
-  					ROS_INFO("X: %f, Y: %f, Z: %f", output_points.at<float>(0, 0), output_points.at<float>(1, 0), output_points.at<float>(2, 0));
-					float cor_x = (output_points.at<float>(0, 0) / 100) * cor_z; // in m
-					float cor_y = (output_points.at<float>(1, 0) / 100) * cor_z; // in m
+					Mat point = (Mat_<float>(2,1) << left_point.x, left_point.y), distortionCoefficients, output_points;
+  					//undistort(point, output_points, cameraMatrix, distortionCoefficients);
+  					//ROS_INFO("X: %f, Y: %f, Z: %f", output_points.at<float>(0, 0), output_points.at<float>(1, 0), output_points.at<float>(2, 0));
+					float cor_x = (left_point.x - cameraMatrix.at<float>(0, 2)) / cameraMatrix.at<float>(0, 0) * cor_z;
+					//(output_points.at<float>(0, 0) * cor_z; // in m
+					float cor_y = (left_point.y - cameraMatrix.at<float>(1, 2)) / cameraMatrix.at<float>(1, 1) * cor_z;
 					x_coordinate.push_back(cor_x);
 					y_coordinate.push_back(cor_y);
 					
