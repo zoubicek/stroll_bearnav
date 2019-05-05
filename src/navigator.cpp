@@ -281,8 +281,8 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 }
 
 /* Get best transformation from points  */
-Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points) {
-	int lenght = min(currentPoints.size(), points.size()), maxPositivePoints = 0;
+Mat findBestTransformation(vector<DMatch> bst_matches, vector<Point3f> currentPoints, vector<Point3f> points) {
+	int lenght = bst_matches.size(), maxPositivePoints = 0;
 	Mat bestTransform;
 	
 	if(lenght > 3) {
@@ -292,15 +292,16 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 			Point2f dst[4];
 			
 			// Get next permutation of 4 points
-			while(c >= 3) {
+			while(c < 3) {
 				int i = rand() % lenght;
-				if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) ||
-					isnan(currentPoints[i].z) || isinf(currentPoints[i].z) ||
-					isnan(points[i].x) || isinf(points[i].x) ||
-					isnan(points[i].z) || isinf(points[i].z))) {
+				int cur = bst_matches[i].trainIdx, svd = bst_matches[i].queryIdx;
+				if(!(isnan(currentPoints[cur].x) || isinf(currentPoints[cur].x) ||
+					isnan(currentPoints[cur].z) || isinf(currentPoints[cur].z) ||
+					isnan(points[svd].x) || isinf(points[svd].x) ||
+					isnan(points[svd].z) || isinf(points[svd].z))) {
 					// Create point
-					Point2f srcP(currentPoints[i].z, currentPoints[i].x);
-					Point2f dstP(points[i].z, points[i].x);
+					Point2f srcP(currentPoints[cur].z, currentPoints[cur].x);
+					Point2f dstP(points[svd].z, points[svd].x);
 					// Set point to array
 					src[c] = srcP;
 					dst[c] = dstP;
@@ -570,7 +571,7 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			}
 
 			/* Find transformation between two pictures */
-			Mat transformation = findBestTransformation(currentPoints, points);
+			Mat transformation = findBestTransformation(best_matches, currentPoints, points);
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();

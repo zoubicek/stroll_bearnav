@@ -70,7 +70,7 @@ clock_t t;
 
 /* Adaptive threshold parameters */
 bool adaptThreshold = true;
-int targetKeypoints = 1;
+int targetKeypoints = 1500;
 float featureOvershootRatio = 0.3;
 float maxLine = 0.5;
 int target_over;
@@ -88,19 +88,22 @@ vector<float> x_coordinate, y_coordinate, z_coordinate;
 /* Mats for matching */
 Mat left_descriptors, right_descriptors, img;
 
-NormTypes cFeatureNorm = featureNorm; // ???
+NormTypes cFeatureNorm = featureNorm;
 
 /* Ration match constant */
-float ratioMatchConstant = 0.3;
+float ratioMatchConstant = 0.95;
 
 /* Count of best matches found per each query descriptor or less if a query descriptor has less than k possible matches in total */
 int knn = 5;
 
 /* Constant to find z-coordinate = distance * difference between x */
-double c = 0.65 * 0.56; // in m
+float c = 14.0;
 
 /* Vertical treshold */
 int vertical_threshold = 5;
+/* Differents horizontals treshold */
+int min_dif_hor_threshold = 3;
+int max_dif_hor_threshold = 320;
 
 /* Cloud keypoints */
 sensor_msgs::PointCloud right_cloud_keypoints, left_cloud_keypoints;
@@ -168,6 +171,8 @@ void callback(stroll_bearnav::featureExtractionConfig &config, uint32_t level)
 	ratioMatchConstant = config.ratioMatchConstant;
 	c = config.cConstant;
 	vertical_threshold = config.verticalThreshold;
+	min_dif_hor_threshold = config.minDifHorThreshold;
+	max_dif_hor_threshold = config.maxDifHorThreshold;
 
 	/* Optimize detecting features and measure time */
 	optimized = config.optimized;
@@ -280,24 +285,24 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 				/* Calculate vertical and horizontal differences */
 				Point2f right_point = right_keypoints[matches[i][0].trainIdx].pt;
 				Point2f left_point = left_keypoints[matches[i][0].queryIdx].pt;
-				double difference_ver = fabs(right_point.y - left_point.y);
-				double difference_hor = fabs(right_point.x - left_point.x);
-
+				float difference_ver = fabs(right_point.y - left_point.y);
+				float difference_hor = fabs(right_point.x - left_point.x);
+				
 				/* Push only straight matches */
-				if (difference_ver <= vertical_threshold)
+				if (difference_ver <= vertical_threshold && difference_hor > min_dif_hor_threshold && difference_hor < max_dif_hor_threshold)
 				{
 					good_matches.push_back(matches[i][0]); // Add to good matches
 
 					// Calculate z-coordinate
-					float cor_z = c / difference_hor; // in m
+					float cor_z = c / difference_hor;
 					z_coordinate.push_back(cor_z);
 
 					// Calculate x, y-coordinate
 					Mat point = (Mat_<float>(2,1) << left_point.x, left_point.y), distortionCoefficients, output_points;
-  					//undistort(point, output_points, cameraMatrix, distortionCoefficients);
+					
   					//ROS_INFO("X: %f, Y: %f, Z: %f", output_points.at<float>(0, 0), output_points.at<float>(1, 0), output_points.at<float>(2, 0));
+					
 					float cor_x = (left_point.x - cameraMatrix.at<float>(0, 2)) / cameraMatrix.at<float>(0, 0) * cor_z;
-					//(output_points.at<float>(0, 0) * cor_z; // in m
 					float cor_y = (left_point.y - cameraMatrix.at<float>(1, 2)) / cameraMatrix.at<float>(1, 1) * cor_z;
 					x_coordinate.push_back(cor_x);
 					y_coordinate.push_back(cor_y);
@@ -382,7 +387,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 	featureArray.id = numStr;
 
 	featureArray.distance = msg->header.seq;
-	printf("Features: %i, Matches: %i, BestMatches: %i, Coordinates: %i, Average distance: %f\n", (int)featureArray.feature.size(), (int)matches.size(), number_of_best_matches, number_of_coordinates, average_distance/number_of_coordinates);
+	average_distance = average_distance / number_of_coordinates;
+	printf("Features: %i, Matches: %i, BestMatches: %i, Coordinates: %i, Average distance: %f\n", (int)featureArray.feature.size(), (int)matches.size(), number_of_best_matches, number_of_coordinates, average_distance);
 	feat_pub_.publish(featureArray);
 
 	/* Show image with good matches */
