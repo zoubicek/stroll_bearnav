@@ -280,38 +280,123 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 		return false;
 }
 
+Mat transformfunkce(vector<float> xi, vector<float> yi,vector<float> x,vector<float> y)
+{
+       Mat A(xi.size(),4,CV_32FC1);
+       Mat b(xi.size(),1,CV_32FC1);
+
+       Mat xx(3,xi.size(),CV_32FC1);
+       Mat rx(2,xi.size(),CV_32FC1);
+       
+		Mat T(2,3,CV_32FC1);
+		float cxxx = 0;
+		float cxxy = 0;
+		float rxxx = 0;
+		float rxxy = 0;
+
+       /*center the values*/
+       for (int i = 0;i<xi.size();i++)
+       {
+               cxxx += x[i];
+               cxxy += y[i];
+               rxxx += xi[i];
+               rxxy += yi[i];
+       }
+       cxxx = cxxx/xi.size();
+       cxxy = cxxy/xi.size();
+       rxxx = rxxx/xi.size();
+       rxxy = rxxy/xi.size();
+       for (int i = 0;i<xi.size();i++){
+               x[i] = x[i]-cxxx;
+               y[i] = y[i]-cxxy;
+               xi[i] = xi[i]-rxxx;
+               yi[i] = yi[i]-rxxy;
+       }
+
+       /*caltulate trf matrix*/
+       for (int i = 0;i<xi.size();i++){
+               if (i == 0 || x[i] != x[i-1]){
+                       A.at<float>(i,0)=yi[i]*x[i]-xi[i]*y[i];
+                       A.at<float>(i,1)=yi[i]*y[i]+xi[i]*x[i];
+                       A.at<float>(i,2)=yi[i];
+                       A.at<float>(i,3)=-xi[i];
+               }
+       }
+       A = (A.t()*A);
+       cv::SVD svdMat(A);
+       //cout << svdMat.w << endl;       //eigenvalues indicate solution quality
+       cv::SVD::solveZ(A,b);
+
+       //normalize vector so that it points in a correct direction
+       if (b.at<float>(0,0) < 0) b=-b;
+       float a0 = b.at<float>(0,0);
+       float a1 = b.at<float>(1,0);
+       //normalize vector so that first two coefs for cos and sin of a rotation matrix
+       b = b/sqrt(a0*a0+a1*a1);
+
+       //construct the transformation matrix
+       a0 = b.at<float>(0,0);
+       a1 = b.at<float>(1,0);
+       float tx = b.at<float>(2,0);
+       float ty = b.at<float>(3,0);
+       T.at<float>(0,0) = a0;
+       T.at<float>(0,1) = a1;
+       T.at<float>(1,0) = -a1;
+       T.at<float>(1,1) = a0;
+       T.at<float>(0,2) = tx-cxxx+a0*rxxx-a1*rxxy;
+       T.at<float>(1,2) = ty-cxxy+a1*rxxx+a0*rxxy;
+       //cout << T << endl;
+
+       //transform the points
+       for (int i = 0;i<xi.size();i++)
+       {
+               xx.at<float>(0,i)=x[i]+cxxx;
+               xx.at<float>(1,i)=y[i]+cxxy;
+               xx.at<float>(2,i)=1;
+               rx.at<float>(0,i)=xi[i]+rxxx;
+               rx.at<float>(1,i)=yi[i]+rxxy;
+       }
+       Mat e = T*xx-rx;
+
+       //calculate error
+       float err = 0;
+       for (int i = 0;i<xi.size();i++) err += sqrt(e.at<float>(0,i)*e.at<float>(0,i)+e.at<float>(1,i)*e.at<float>(1,i));
+       
+       
+       return T;
+}
+
 /* Get best transformation from points  */
-Mat findBestTransformation(vector<DMatch> bst_matches, vector<Point3f> currentPoints, vector<Point3f> points) {
-	int lenght = bst_matches.size(), maxPositivePoints = 0;
+Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points) {
+	int lenght = currentPoints.size(), maxPositivePoints = 0;
 	Mat bestTransform;
 	
-	if(lenght > 3) {
+	if(lenght > 1) {
 		for(int round = 0; round < maxSearchingAttempts; round++) {
 			int c = 0, positivePoints = 0;
-			Point2f src[4];
-			Point2f dst[4];
+			vector<float> srcX;
+			vector<float> srcY;
+			vector<float> dstX;
+			vector<float> dstY;
 			
-			// Get next permutation of 4 points
-			while(c < 3) {
+			// Get next permutation of 2 points
+			while(c <= 1) {
 				int i = rand() % lenght;
-				int cur = bst_matches[i].trainIdx, svd = bst_matches[i].queryIdx;
-				if(!(isnan(currentPoints[cur].x) || isinf(currentPoints[cur].x) ||
-					isnan(currentPoints[cur].z) || isinf(currentPoints[cur].z) ||
-					isnan(points[svd].x) || isinf(points[svd].x) ||
-					isnan(points[svd].z) || isinf(points[svd].z))) {
-					// Create point
-					Point2f srcP(currentPoints[cur].z, currentPoints[cur].x);
-					Point2f dstP(points[svd].z, points[svd].x);
-					// Set point to array
-					src[c] = srcP;
-					dst[c] = dstP;
+				if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) ||
+					isnan(currentPoints[i].z) || isinf(currentPoints[i].z) ||
+					isnan(points[i].x) || isinf(points[i].x) ||
+					isnan(points[i].z) || isinf(points[i].z))) {
+					srcX.push_back(currentPoints[i].z);
+					srcY.push_back(currentPoints[i].x);
+					dstX.push_back(points[i].z);
+					dstY.push_back(points[i].x);
 					// Increase counter
 					c++;
 				}
 			}
 
 			// Get perspective transform
-			Mat transform = getPerspectiveTransform(src, dst); // Return CV_64F matrix
+			Mat transform = transformfunkce(srcX, srcY, dstX, dstY);
 			// Convert tranformation matrix to CV_32F
 			transform.convertTo(transform, CV_32F);
 
@@ -340,8 +425,6 @@ Mat findBestTransformation(vector<DMatch> bst_matches, vector<Point3f> currentPo
 				maxPositivePoints = positivePoints;
 			}
 		}
-		// Do perspective transform again???
-		
 		// Show info
 		cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << lenght << endl << endl;
 	}
@@ -559,19 +642,29 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 
 			/* Get points from best matches  */
 			std::vector<Point3f> currentPoints, points;
-			int arLen = min(currentXCoordinates.size(), xCoordinates.size()); // Loss of ramining points
+			
+			cout << "best match size: " << good_matches.size() << " matches: " << matches.size() << endl;
 
-			for (size_t i = 0; i < arLen; i++)
+			for (size_t i = 0; i < best_matches.size(); i++)
 			{
-				Point3f currentPoint(currentXCoordinates[i], currentYCoordinates[i], currentZCoordinates[i]); 
-				Point3f point(xCoordinates[i], yCoordinates[i], zCoordinates[i]);
-
-				currentPoints.push_back(currentPoint);
-				points.push_back(point);
+				int sav_idx = good_matches[i].queryIdx;
+				int cur_idx = good_matches[i].trainIdx;
+				
+				if(currentXCoordinates[cur_idx] != 0.0 && currentYCoordinates[cur_idx] != 0.0 &&
+				   currentZCoordinates[cur_idx] != 0.0 && xCoordinates[sav_idx] != 0.0 &&
+				   yCoordinates[sav_idx] != 0.0 && zCoordinates[sav_idx] != 0.0) {
+					
+					Point3f currentPoint(currentXCoordinates[cur_idx], currentYCoordinates[cur_idx], currentZCoordinates[cur_idx]); 
+					Point3f point(xCoordinates[sav_idx], yCoordinates[sav_idx], zCoordinates[sav_idx]);
+					
+					currentPoints.push_back(currentPoint);
+					points.push_back(point);
+				}
 			}
 
 			/* Find transformation between two pictures */
-			Mat transformation = findBestTransformation(best_matches, currentPoints, points);
+			cout << "cur: " << currentPoints.size() << endl;
+			Mat transformation = findBestTransformation(currentPoints, points);
 
 			/* publish statistics */
 			feedback.correct = best_matches.size();
