@@ -280,7 +280,7 @@ bool compare_rating(stroll_bearnav::Feature first, stroll_bearnav::Feature secon
 		return false;
 }
 
-Mat transformfunkce(vector<float> xi, vector<float> yi,vector<float> x,vector<float> y)
+Mat getTransformation(vector<float> xi, vector<float> yi,vector<float> x,vector<float> y)
 {
        Mat A(xi.size(),4,CV_32FC1);
        Mat b(xi.size(),1,CV_32FC1);
@@ -396,7 +396,7 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 			}
 
 			// Get perspective transform
-			Mat transform = transformfunkce(srcX, srcY, dstX, dstY);
+			Mat transform = getTransformation(srcX, srcY, dstX, dstY);
 			// Convert tranformation matrix to CV_32F
 			transform.convertTo(transform, CV_32F);
 
