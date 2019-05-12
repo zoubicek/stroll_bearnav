@@ -402,7 +402,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 	{
 		/* Draw keypoints and matches */
 		Mat output;
-		drawMatches(left_img, left_keypoints, right_img, right_keypoints, good_matches, output, Scalar(0, 0, 255), Scalar(0, 0, 255), vector<char>(), 0);
+		drawMatches(left_img, left_keypoints, right_img, right_keypoints, good_matches, output, Scalar(255, 0, 0), Scalar(0, 0, 255), vector<char>(), 0);
 
 		/* Send image */
 		std_msgs::Header header;
