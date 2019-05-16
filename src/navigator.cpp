@@ -116,7 +116,8 @@ bool isRating = false;
 int mapChanges = 0;
 
 /* Variables for best transformation */
-int maxSearchingAttempts = 700, compareThreshold = 20;
+int maxSearchingAttempts = 2000;
+float compareThreshold = 0.1;
 
 /* Total distance travelled recieved from the event */
 void distanceEventCallback(const std_msgs::Float32::ConstPtr &msg)
@@ -368,12 +369,12 @@ Mat getTransformation(vector<float> xi, vector<float> yi,vector<float> x,vector<
 
 /* Get best transformation from points  */
 Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points) {
-	int lenght = currentPoints.size(), maxPositivePoints = 0;
+	int lenght = currentPoints.size(), maxPositivePoints = 0, maxSearchingPointsAt = 2000;
 	Mat bestTransform;
 	
 	if(lenght > 1) {
 		for(int round = 0; round < maxSearchingAttempts; round++) {
-			int c = 0, positivePoints = 0;
+			int c = 0, positivePoints = 0, searchingPointAt = 0;
 			vector<float> srcX;
 			vector<float> srcY;
 			vector<float> dstX;
@@ -393,6 +394,12 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 					// Increase counter
 					c++;
 				}
+				
+				if(maxSearchingPointsAt <= searchingPointAt) {
+					break;
+				} else {
+					searchingPointAt++;
+				}
 			}
 
 			// Get perspective transform
@@ -403,10 +410,8 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 			// Compare points after transformation and get number of positive results
 			for (int i = 0; i < lenght; ++i) {
 				if(!(isnan(currentPoints[i].x) || isinf(currentPoints[i].x) ||
-					 isnan(currentPoints[i].y) || isinf(currentPoints[i].y) ||
 					 isnan(currentPoints[i].z) || isinf(currentPoints[i].z) ||
 					 isnan(points[i].x) || isinf(points[i].x) ||
-					 isnan(points[i].y) || isinf(points[i].y) ||
 					 isnan(points[i].z) || isinf(points[i].z))) {
 					// Create matrix from point
 					Mat srcM = (Mat_<float>(3,1) << currentPoints[i].z, currentPoints[i].x , 1);
@@ -426,7 +431,9 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 			}
 		}
 		// Show info
-		cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << lenght << endl << endl;
+		if(maxPositivePoints > 0) {
+			cout << "Best transformation = " << endl  << bestTransform << endl << "Number of positive points = " << maxPositivePoints << " from " << lenght << endl << endl;
+		}
 	}
 	
 	return bestTransform;
