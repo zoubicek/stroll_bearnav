@@ -100,7 +100,7 @@ int knn = 5;
 float c = 28.0;
 
 /* Vertical treshold */
-int vertical_threshold = 5;
+int vertical_threshold = 3;
 
 /* Cloud keypoints */
 sensor_msgs::PointCloud right_cloud_keypoints, left_cloud_keypoints;
