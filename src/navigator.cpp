@@ -117,7 +117,7 @@ int mapChanges = 0;
 
 /* Variables for best transformation */
 int maxSearchingAttempts = 2000;
-float compareThreshold = 0.1;
+float compareThreshold = 0.07;
 
 /* Total distance travelled recieved from the event */
 void distanceEventCallback(const std_msgs::Float32::ConstPtr &msg)
@@ -375,10 +375,10 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 	if(lenght > 1) {
 		for(int round = 0; round < maxSearchingAttempts; round++) {
 			int c = 0, positivePoints = 0, searchingPointAt = 0;
+			vector<float> srcZ;
 			vector<float> srcX;
-			vector<float> srcY;
+			vector<float> dstZ;
 			vector<float> dstX;
-			vector<float> dstY;
 			
 			// Get next permutation of 2 points
 			while(c <= 1) {
@@ -387,10 +387,10 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 					isnan(currentPoints[i].z) || isinf(currentPoints[i].z) ||
 					isnan(points[i].x) || isinf(points[i].x) ||
 					isnan(points[i].z) || isinf(points[i].z))) {
-					srcX.push_back(currentPoints[i].z);
-					srcY.push_back(currentPoints[i].x);
-					dstX.push_back(points[i].z);
-					dstY.push_back(points[i].x);
+					srcZ.push_back(currentPoints[i].z);
+					srcX.push_back(currentPoints[i].x);
+					dstZ.push_back(points[i].z);
+					dstX.push_back(points[i].x);
 					// Increase counter
 					c++;
 				}
@@ -403,7 +403,7 @@ Mat findBestTransformation(vector<Point3f> currentPoints, vector<Point3f> points
 			}
 
 			// Get perspective transform
-			Mat transform = getTransformation(srcX, srcY, dstX, dstY);
+			Mat transform = getTransformation(srcZ, srcX, dstZ, dstX);
 			// Convert tranformation matrix to CV_32F
 			transform.convertTo(transform, CV_32F);
 
@@ -657,9 +657,8 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 				int sav_idx = good_matches[i].queryIdx;
 				int cur_idx = good_matches[i].trainIdx;
 				
-				if(currentXCoordinates[cur_idx] != 0.0 && currentYCoordinates[cur_idx] != 0.0 &&
-				   currentZCoordinates[cur_idx] != 0.0 && xCoordinates[sav_idx] != 0.0 &&
-				   yCoordinates[sav_idx] != 0.0 && zCoordinates[sav_idx] != 0.0) {
+				if(currentXCoordinates[cur_idx] != numeric_limits<float>::max() && currentZCoordinates[cur_idx] != numeric_limits<float>::max() && 
+				   xCoordinates[sav_idx] != numeric_limits<float>::max() && zCoordinates[sav_idx] != numeric_limits<float>::max()) {
 					
 					Point3f currentPoint(currentXCoordinates[cur_idx], currentYCoordinates[cur_idx], currentZCoordinates[cur_idx]); 
 					Point3f point(xCoordinates[sav_idx], yCoordinates[sav_idx], zCoordinates[sav_idx]);

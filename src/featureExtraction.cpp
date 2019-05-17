@@ -273,9 +273,9 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 		// Init default coordinates
 		for (int i = 0; i < left_keypoints.size(); i++)
 		{
-			x_coordinate.push_back(0.0);
-			y_coordinate.push_back(0.0);
-			z_coordinate.push_back(0.0);
+			x_coordinate.push_back(numeric_limits<float>::max());
+			y_coordinate.push_back(numeric_limits<float>::max());
+			z_coordinate.push_back(numeric_limits<float>::max());
 		}
 
 		/* Perform ratio matching */
@@ -316,11 +316,11 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 					y_coordinate[left_idx] = cor_y;
 					
 					// Show info
-					ROS_INFO("RX: %.0f, RY: %.0f", right_point.x, right_point.y);
-					ROS_INFO("LX: %.0f, LY: %.0f", left_point.x, left_point.y);
-					ROS_INFO("DVER: %.0f, DHOR: %.0f", difference_ver, difference_hor);
-					ROS_INFO("X: %f, Y: %f, Z: %f", cor_x, cor_y, cor_z);
-					ROS_INFO("-------------------------");
+					//ROS_INFO("RX: %.0f, RY: %.0f", right_point.x, right_point.y);
+					//ROS_INFO("LX: %.0f, LY: %.0f", left_point.x, left_point.y);
+					//ROS_INFO("DVER: %.0f, DHOR: %.0f", difference_ver, difference_hor);
+					//ROS_INFO("X: %f, Y: %f, Z: %f", cor_x, cor_y, cor_z);
+					//ROS_INFO("-------------------------");
 
 					// Set cloud points (/100 - better to show)
 					left_cloud_keypoints.points[i].x = cor_x;
@@ -337,7 +337,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 			}
 		}
 	}
-
+	
 	// Set channel depth
 	sensor_msgs::ChannelFloat32 depth_channel;
 	depth_channel.name = "distance";
@@ -394,7 +394,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 	featureArray.id = numStr;
 
 	featureArray.distance = msg->header.seq;
-	printf("Features: %i, Matches: %i, BestMatches: %i, Coordinates: %i\n", (int)featureArray.feature.size(), (int)matches.size(), number_of_best_matches, number_of_coordinates);
+	ROS_INFO("Features: %i, Matches: %i, BestMatches: %i, Coordinates: %i\n", (int)featureArray.feature.size(), (int)matches.size(), number_of_best_matches, number_of_coordinates);
 	feat_pub_.publish(featureArray);
 
 	/* Show image with good matches */
