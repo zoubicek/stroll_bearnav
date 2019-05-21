@@ -652,10 +652,10 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			
 			cout << "best match size: " << good_matches.size() << " matches: " << matches.size() << endl;
 
-			for (size_t i = 0; i < best_matches.size(); i++)
+			for (size_t i = 0; i < matches.size(); i++)
 			{
-				int sav_idx = good_matches[i].queryIdx;
-				int cur_idx = good_matches[i].trainIdx;
+				int sav_idx = matches[i][0].queryIdx;
+				int cur_idx = matches[i][0].trainIdx;
 				
 				if(currentXCoordinates[cur_idx] != numeric_limits<float>::max() && currentZCoordinates[cur_idx] != numeric_limits<float>::max() && 
 				   xCoordinates[sav_idx] != numeric_limits<float>::max() && zCoordinates[sav_idx] != numeric_limits<float>::max()) {
@@ -669,7 +669,6 @@ void featureCallback(const stroll_bearnav::FeatureArray::ConstPtr &msg)
 			}
 
 			/* Find transformation between two pictures */
-			cout << "cur: " << currentPoints.size() << endl;
 			Mat transformation = findBestTransformation(currentPoints, points);
 
 			/* publish statistics */
